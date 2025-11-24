@@ -17,8 +17,8 @@ class COXProductionManager(ctk.CTk):
         super().__init__()
 
         # 1. 기본 윈도우 설정
-        self.title("COX Production Manager")
-        self.geometry("1650x800")
+        self.title(f"COX Production Manager - v{Config.APP_VERSION}")
+        self.center_window(1650, 800)
         
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("dark-blue")
@@ -53,6 +53,14 @@ class COXProductionManager(ctk.CTk):
 
         # 5. 초기 데이터 로드 시도 (팝업 없이 실행)
         self.load_data_btn_click(show_msg=False)
+
+    def center_window(self, width, height):
+        """화면 중앙에 윈도우를 배치하는 함수"""
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width / 2) - (width / 2)
+        y = (screen_height / 2) - (height / 2)
+        self.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
 
     def create_widgets(self):
         # 상단 프레임

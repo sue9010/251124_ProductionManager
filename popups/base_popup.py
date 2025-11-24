@@ -12,11 +12,23 @@ class BasePopup(ctk.CTkToplevel):
         self.refresh_callback = refresh_callback
 
         self.title(title)
-        self.geometry(geometry)
+        
+        # geometry 문자열에서 너비와 높이 추출
+        width, height = map(int, geometry.split('x'))
+        self.center_window(width, height)
+
         self.attributes("-topmost", True)
 
         # Helper to store entry widgets for later processing
         self.entry_widgets = []
+
+    def center_window(self, width, height):
+        """화면 중앙에 윈도우를 배치하는 함수"""
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width / 2) - (width / 2)
+        y = (screen_height / 2) - (height / 2)
+        self.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
 
     def _open_pdf_file(self, path):
         """주어진 경로의 파일을 시스템 기본 프로그램으로 엽니다."""
@@ -74,7 +86,16 @@ class BasePopup(ctk.CTkToplevel):
         win = ctk.CTkToplevel(master)
         win.transient(master) 
         win.title("출고예정일 변경")
-        win.geometry("300x150")
+        
+        # 작은 팝업 화면 중앙 배치
+        width = 300
+        height = 150
+        screen_width = win.winfo_screenwidth()
+        screen_height = win.winfo_screenheight()
+        x = (screen_width / 2) - (width / 2)
+        y = (screen_height / 2) - (height / 2)
+        win.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+
         win.lift()
         win.attributes("-topmost", True)
         

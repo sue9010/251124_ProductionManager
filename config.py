@@ -29,6 +29,9 @@ class Config:
     # 5. 설정 파일 전체 경로 (예: C:\Users\sue\.ProductionManager\config.json)
     CONFIG_FILENAME = os.path.join(APP_DIR, "config.json")
     
+    # 6. 애플리케이션 버전
+    APP_VERSION = "1.0.0"
+    
     # ---------------------------------------------------------
     # [기타 설정]
     # ---------------------------------------------------------
