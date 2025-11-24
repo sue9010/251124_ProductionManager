@@ -75,8 +75,6 @@ class PopupManager:
         """
         헤더 영역에 Hold 또는 생산재개 버튼을 추가합니다.
         pack(side='right')를 사용하므로, PDF 버튼보다 먼저 호출해야 PDF 버튼 왼쪽에 위치합니다.
-        하지만 pack 순서상 PDF 버튼이 먼저 right로 붙고, 그 다음에 이 버튼이 right로 붙으면
-        PDF 버튼의 왼쪽에 위치하게 됩니다.
         """
         
         # 1. 현재 상태가 'Hold'인 경우 -> [생산 재개] 버튼
@@ -155,6 +153,46 @@ class PopupManager:
         
         # 2. 그 왼쪽: Hold / 재개 버튼
         self._add_hold_button(header_line, req_no, current_status, popup)
+
+        # 3. [Updated] 그 왼쪽: 생산대기 버튼 (팝업 오픈)
+        def open_waiting_reason_popup():
+            # 사유 입력을 위한 작은 팝업 생성
+            reason_window = ctk.CTkToplevel(popup)
+            reason_window.title("생산 대기 설정")
+            reason_window.geometry("400x200")
+            reason_window.attributes("-topmost", True)
+            
+            ctk.CTkLabel(reason_window, text="대기 사유를 입력하세요.", font=("Malgun Gothic", 14, "bold")).pack(pady=(20, 10))
+            
+            e_reason = ctk.CTkEntry(reason_window, width=300)
+            e_reason.pack(pady=5)
+            e_reason.focus_set()
+            
+            def submit_reason():
+                reason_text = e_reason.get().strip()
+                if not reason_text:
+                    messagebox.showwarning("경고", "대기 사유를 입력해주세요.", parent=reason_window)
+                    return
+                
+                # 데이터 매니저를 통해 저장
+                if self.dm.update_status_to_waiting(req_no, reason_text):
+                    messagebox.showinfo("성공", "상태가 '대기'로 변경되었습니다.", parent=reason_window)
+                    reason_window.destroy()
+                    popup.destroy()
+                    self.refresh_callback() # 메인 화면 갱신
+                else:
+                    messagebox.showerror("오류", "데이터 업데이트 실패", parent=reason_window)
+            
+            btn_frame = ctk.CTkFrame(reason_window, fg_color="transparent")
+            btn_frame.pack(pady=20)
+            
+            ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color="#D35400", hover_color="#A04000", width=80).pack(side="left", padx=5)
+            ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color="#555555", hover_color="#333333", width=80).pack(side="left", padx=5)
+
+
+        ctk.CTkButton(header_line, text="생산대기", width=80, fg_color="#D35400", hover_color="#A04000", 
+                      command=open_waiting_reason_popup).pack(side="right", padx=(0, 5))
+
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
         grid_frame.pack(fill="x")

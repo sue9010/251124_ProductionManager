@@ -44,9 +44,18 @@ class DataManager:
                     # 시트 이름이 다를 경우 첫 번째 시트를 읽음
                     self.df = pd.read_excel(xls, 0)
 
-                # 컬럼 매핑 보정
-                if len(self.df.columns) >= len(Config.COLUMNS):
-                    self.df.columns = Config.COLUMNS[:len(self.df.columns)]
+                # 컬럼 매핑 보정 (기존 파일의 컬럼 수가 Config와 다를 수 있음)
+                # Config에 정의된 컬럼 이름으로 덮어쓰되, 부족한 부분은 유지하고 넘침은 자름
+                current_cols_len = len(self.df.columns)
+                config_cols_len = len(Config.COLUMNS)
+
+                if current_cols_len >= config_cols_len:
+                    # 엑셀 컬럼이 더 많거나 같으면 Config 길이만큼 잘라서 이름 매핑
+                    self.df.columns = list(Config.COLUMNS) + list(self.df.columns[config_cols_len:])
+                    self.df = self.df.iloc[:, :config_cols_len] # 필요한 만큼만 자르기
+                else:
+                    # 엑셀 컬럼이 더 적으면 있는 만큼만 이름 매핑
+                    self.df.columns = Config.COLUMNS[:current_cols_len]
                 
                 # 2. 로그 시트 로드 (없으면 빈 DataFrame 생성)
                 if Config.SHEET_LOG in xls.sheet_names:
@@ -79,7 +88,9 @@ class DataManager:
             "시리얼번호": [None, None, None, None, None, None, None],
             "렌즈업체": [None, None, None, None, None, None, None],
             "생산팀 메모": [None, None, None, None, None, None, None],
-            "Status": ["생산 접수", "생산중", "대기", "완료", "출고", "생산 접수", "생산중"] 
+            "Status": ["생산 접수", "생산중", "대기", "완료", "출고", "생산 접수", "생산중"],
+            "파일경로": [None]*7,
+            "대기사유": [None, None, "부품 지연", None, None, None, None]
         }
         self.df = pd.DataFrame(data)
         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) # 더미 로그 초기화
@@ -90,6 +101,12 @@ class DataManager:
         if self.df.empty:
             return
 
+        # 1. Config에 정의된 컬럼이 없으면 생성 (예: P열 '대기사유'가 엑셀에 없던 경우)
+        for col in Config.COLUMNS:
+            if col not in self.df.columns:
+                self.df[col] = '-'
+
+        # 2. 날짜 포맷팅
         for date_col in ["출고요청일", "출고예정일", "출고일"]:
             if date_col in self.df.columns:
                  self.df[date_col] = pd.to_datetime(self.df[date_col], errors='coerce', format='mixed').dt.strftime('%Y-%m-%d')
@@ -98,13 +115,15 @@ class DataManager:
 
     def save_to_excel(self):
         """데이터와 로그를 엑셀 파일에 함께 저장"""
-        # ExcelWriter를 사용하여 여러 시트를 한 파일에 작성
+        # 저장 전 컬럼 순서 강제 정렬 (Config 순서대로)
+        existing_cols = [c for c in Config.COLUMNS if c in self.df.columns]
+        output_df = self.df[existing_cols]
+
         with pd.ExcelWriter(self.current_excel_path, engine="openpyxl") as writer:
-            self.df.to_excel(writer, sheet_name=Config.SHEET_DATA, index=False)
+            output_df.to_excel(writer, sheet_name=Config.SHEET_DATA, index=False)
             self.log_df.to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
         
-        # 저장 후 다시 전처리(포맷 유지)
-        self._preprocess_data()
+        self.load_data() # 저장 후 재로드하여 상태 동기화
 
     # -----------------------------------------------------
     # [New] Logging System
@@ -245,6 +264,24 @@ class DataManager:
             
             # [Log]
             self._add_log("생산 재개", f"번호[{req_no}] Hold -> 생산중 변경")
+            
+            self.save_to_excel()
+            return True
+        return False
+
+    # -----------------------------------------------------
+    # [Updated] 생산대기 기능 (사유 입력 추가)
+    # -----------------------------------------------------
+    def update_status_to_waiting(self, req_no, reason):
+        """상태를 '대기'로 변경하고 대기 사유를 저장"""
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any():
+            old_status = self.df.loc[mask, "Status"].iloc[0]
+            self.df.loc[mask, "Status"] = "대기"
+            self.df.loc[mask, "대기사유"] = reason  # 사유 저장
+            
+            # [Log]
+            self._add_log("대기 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 대기) / 사유: {reason}")
             
             self.save_to_excel()
             return True
