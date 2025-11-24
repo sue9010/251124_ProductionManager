@@ -4,6 +4,7 @@ import tkinter as tk
 from config import Config
 from data_manager import DataManager
 from popups import PopupManager
+from calendar_view import CalendarView
 
 # ==========================================
 # [App] 메인 프로그램 클래스 (Main View)
@@ -55,6 +56,9 @@ class COXProductionManager(ctk.CTk):
         # --- [우측 컨트롤 그룹] ---
         # 1. 설정 버튼
         ctk.CTkButton(top_frame, text="설정", command=self.pm.open_settings, width=60, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(10, 20))
+
+        # [NEW] 달력으로 보기 버튼
+        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(0, 5))
 
         # 2. 검색 버튼
         ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, fg_color="#777777", hover_color="#555555").pack(side="right", padx=(5, 0))
@@ -233,6 +237,14 @@ class COXProductionManager(ctk.CTk):
             self.pm.open_complete_popup(req_no)
         elif status == "완료": 
             self.pm.open_completed_view_popup(req_no)
+
+    def open_calendar_popup(self):
+        """달력 팝업을 엽니다."""
+        # Check if a calendar window already exists
+        if not hasattr(self, "calendar_window") or not self.calendar_window.winfo_exists():
+            self.calendar_window = CalendarView(self, self.dm)
+        else:
+            self.calendar_window.focus() # If it exists, bring it to the front
 
 if __name__ == "__main__":
     app = COXProductionManager()
