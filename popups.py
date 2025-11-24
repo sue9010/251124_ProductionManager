@@ -1,4 +1,4 @@
-import os  # 파일 실행을 위해 추가
+import os
 from datetime import datetime
 from tkinter import filedialog, messagebox
 
@@ -81,9 +81,12 @@ class PopupManager:
         if current_status == "Hold":
             def resume_production():
                 if messagebox.askyesno("생산 재개", f"번호 [{req_no}]의 생산을 재개하시겠습니까?\n(상태가 '생산중'으로 변경됩니다.)", parent=popup_window):
-                    self.dm.update_status_resume(req_no)
-                    self.refresh_callback()
-                    popup_window.destroy()
+                    success, msg = self.dm.update_status_resume(req_no)
+                    if success:
+                        self.refresh_callback()
+                        popup_window.destroy()
+                    else:
+                        messagebox.showerror("실패", msg, parent=popup_window)
                     
             ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#2CC985", hover_color="#26AB71",
                           command=resume_production).pack(side="right", padx=(0, 5))
@@ -92,9 +95,12 @@ class PopupManager:
         else:
             def set_hold():
                 if messagebox.askyesno("Hold 설정", f"번호 [{req_no}]를 Hold 상태로 변경하시겠습니까?", parent=popup_window):
-                    self.dm.update_status_to_hold(req_no)
-                    self.refresh_callback()
-                    popup_window.destroy()
+                    success, msg = self.dm.update_status_to_hold(req_no)
+                    if success:
+                        self.refresh_callback()
+                        popup_window.destroy()
+                    else:
+                        messagebox.showerror("실패", msg, parent=popup_window)
 
             ctk.CTkButton(parent_frame, text="Hold", width=60, fg_color="#E04F5F", hover_color="#C0392B", 
                           command=set_hold).pack(side="right", padx=(0, 5))
@@ -154,7 +160,7 @@ class PopupManager:
         # 2. 그 왼쪽: Hold / 재개 버튼
         self._add_hold_button(header_line, req_no, current_status, popup)
 
-        # 3. [Updated] 그 왼쪽: 생산대기 버튼 (팝업 오픈)
+        # 3. 그 왼쪽: 생산대기 버튼 (팝업 오픈)
         def open_waiting_reason_popup():
             # 사유 입력을 위한 작은 팝업 생성
             reason_window = ctk.CTkToplevel(popup)
@@ -174,14 +180,15 @@ class PopupManager:
                     messagebox.showwarning("경고", "대기 사유를 입력해주세요.", parent=reason_window)
                     return
                 
-                # 데이터 매니저를 통해 저장
-                if self.dm.update_status_to_waiting(req_no, reason_text):
+                # 데이터 매니저를 통해 저장 (성공/실패 확인)
+                success, msg = self.dm.update_status_to_waiting(req_no, reason_text)
+                if success:
                     messagebox.showinfo("성공", "상태가 '대기'로 변경되었습니다.", parent=reason_window)
                     reason_window.destroy()
                     popup.destroy()
                     self.refresh_callback() # 메인 화면 갱신
                 else:
-                    messagebox.showerror("오류", "데이터 업데이트 실패", parent=reason_window)
+                    messagebox.showerror("실패", msg, parent=reason_window)
             
             btn_frame = ctk.CTkFrame(reason_window, fg_color="transparent")
             btn_frame.pack(pady=20)
@@ -239,14 +246,15 @@ class PopupManager:
                 return
             
             try:
-                if self.dm.update_production_schedule(req_no, date_str):
+                success, msg = self.dm.update_production_schedule(req_no, date_str)
+                if success:
                     messagebox.showinfo("성공", "생산 일정이 등록/수정 되었습니다.", parent=popup)
                     popup.destroy()
                     self.refresh_callback() # 메인 화면 갱신
                 else:
-                    messagebox.showerror("오류", "해당 번호의 데이터를 찾을 수 없습니다.", parent=popup)
+                    messagebox.showerror("실패", msg, parent=popup)
             except Exception as e:
-                messagebox.showerror("오류", f"저장 중 오류: {e}", parent=popup)
+                messagebox.showerror("오류", f"오류 발생: {e}", parent=popup)
 
         btn_text = "일정 등록 (생산 시작)"
         if current_status == "Hold":
@@ -374,11 +382,14 @@ class PopupManager:
                         "lens": item["lens_w"].get()
                     })
                 
-                self.dm.update_production_complete(data_to_update, e_date.get(), e_memo.get())
-                
-                messagebox.showinfo("성공", "생산 완료 및 출고 처리가 되었습니다.", parent=popup)
-                popup.destroy()
-                self.refresh_callback()
+                success, msg = self.dm.update_production_complete(data_to_update, e_date.get(), e_memo.get())
+                if success:
+                    messagebox.showinfo("성공", "생산 완료 및 출고 처리가 되었습니다.", parent=popup)
+                    popup.destroy()
+                    self.refresh_callback()
+                else:
+                    messagebox.showerror("실패", msg, parent=popup)
+
             except Exception as e:
                 messagebox.showerror("오류", f"저장 중 오류: {e}", parent=popup)
 
@@ -409,11 +420,15 @@ class PopupManager:
         def confirm():
             new_date = entry.get()
             if not new_date: return
-            self.dm.update_expected_date(req_no, new_date)
-            if hasattr(self, 'lbl_expected_date'):
-                self.lbl_expected_date.configure(text=new_date)
-            self.refresh_callback()
-            win.destroy()
+            
+            success, msg = self.dm.update_expected_date(req_no, new_date)
+            if success:
+                if hasattr(self, 'lbl_expected_date'):
+                    self.lbl_expected_date.configure(text=new_date)
+                self.refresh_callback()
+                win.destroy()
+            else:
+                messagebox.showerror("실패", msg, parent=win)
             
         ctk.CTkButton(win, text="변경 저장", command=confirm, fg_color="#3B8ED0", width=100).pack(pady=10)
         win.focus_force() 
