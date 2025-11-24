@@ -246,3 +246,18 @@ class DataManager:
             self._add_log("대기 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 대기) / 사유: {reason}")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
+
+    def delete_request(self, req_no):
+        """요청 번호에 해당하는 모든 데이터를 삭제합니다."""
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any():
+            # 삭제 전 로그 남기기
+            details = f"번호[{req_no}] 데이터 삭제"
+            self._add_log("데이터 삭제", details)
+            
+            # 해당 데이터를 제외한 나머지로 df 갱신
+            self.df = self.df[~mask]
+            
+            # 엑셀에 저장
+            return self.save_to_excel()
+        return False, "삭제할 데이터를 찾을 수 없습니다."

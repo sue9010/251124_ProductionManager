@@ -57,7 +57,7 @@ class SchedulePopup(BasePopup):
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
         # 3. 그 왼쪽: 생산대기 버튼 (팝업 오픈)
-        ctk.CTkButton(header_line, text="생산대기", width=80, fg_color="#D35400", hover_color="#A04000", 
+        ctk.CTkButton(header_line, text="생산대기", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
                       command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
 
 
@@ -103,7 +103,21 @@ class SchedulePopup(BasePopup):
         if self.current_status == "Hold":
             btn_text = "일정 재등록 및 생산 시작"
             
-        ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color="#2CC985", hover_color="#26AB71", height=40).pack(side="right", padx=(20,0))
+        ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color="#3B8ED0", hover_color="#36719F", height=40).pack(side="right", padx=(5,0))
+        
+        # 삭제 버튼 추가
+        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B", height=40).pack(side="right", padx=(0,0))
+
+    def delete_entry(self):
+        """요청 번호에 해당하는 데이터를 삭제합니다."""
+        if messagebox.askyesno("삭제 확인", f"정말로 요청 번호 [{self.req_no}]의 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", parent=self):
+            success, msg = self.dm.delete_request(self.req_no)
+            if success:
+                messagebox.showinfo("삭제 완료", "데이터가 성공적으로 삭제되었습니다.", parent=self.master)
+                self.destroy()
+                self.refresh_callback()
+            else:
+                messagebox.showerror("삭제 실패", msg, parent=self)
 
     def open_waiting_reason_popup(self):
         # 사유 입력을 위한 작은 팝업 생성
@@ -137,7 +151,7 @@ class SchedulePopup(BasePopup):
         btn_frame = ctk.CTkFrame(reason_window, fg_color="transparent")
         btn_frame.pack(pady=20)
         
-        ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color="#D35400", hover_color="#A04000", width=80).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color="#3B8ED0", hover_color="#36719F", width=80).pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color="#555555", hover_color="#333333", width=80).pack(side="left", padx=5)
 
     def confirm(self):

@@ -70,7 +70,7 @@ class COXProductionManager(ctk.CTk):
         ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 0))
 
         # 2. 검색 버튼
-        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, height=40,fg_color="#777777", hover_color="#555555").pack(side="right", padx=(5, 5))
+        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 5))
 
         # 3. 검색창
         self.search_entry = ctk.CTkEntry(top_frame, width=200, height=40, placeholder_text="번호, 업체, 모델, 시리얼...")
@@ -191,8 +191,8 @@ class COXProductionManager(ctk.CTk):
                 if status == "Hold":
                     btn.configure(fg_color="#E04F5F", text_color=text_color_active, border_width=0)
                 elif status == "대기":
-                    # 대기 상태는 주황색 계열
-                    btn.configure(fg_color="#E04F5F", text_color=text_color_active, border_width=0)
+                    # 대기 상태는 파란색 계열
+                    btn.configure(fg_color="#3B8ED0", text_color=text_color_active, border_width=0)
                 else:
                     btn.configure(fg_color=active_color, text_color=text_color_active, border_width=0)
             else:

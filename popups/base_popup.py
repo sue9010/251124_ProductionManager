@@ -47,7 +47,7 @@ class BasePopup(ctk.CTkToplevel):
                     else:
                         messagebox.showerror("실패", msg, parent=self)
                     
-            ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#2CC985", hover_color="#26AB71",
+            ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#3B8ED0", hover_color="#36719F",
                           command=resume_production).pack(side="right", padx=(0, 5))
         else:
             def set_hold():

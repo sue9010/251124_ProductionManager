@@ -111,7 +111,22 @@ class CompletePopup(BasePopup):
         self.e_memo = ctk.CTkEntry(footer, width=250)
         self.e_memo.pack(side="left", fill="x", expand=True, padx=(0, 20))
 
-        ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color="#2CC985", hover_color="#26AB71", width=150, height=40).pack(side="right")
+        ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color="#3B8ED0", hover_color="#36719F", width=150, height=40).pack(side="right")
+        
+        # 삭제 버튼 추가
+        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B", width=150, height=40).pack(side="right", padx=(0, 5))
+
+    def delete_entry(self):
+        """요청 번호에 해당하는 데이터를 삭제합니다."""
+        if messagebox.askyesno("삭제 확인", f"정말로 요청 번호 [{self.req_no}]의 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", parent=self):
+            success, msg = self.dm.delete_request(self.req_no)
+            if success:
+                messagebox.showinfo("삭제 완료", "데이터가 성공적으로 삭제되었습니다.", parent=self.master)
+                self.destroy()
+                self.refresh_callback()
+            else:
+                messagebox.showerror("삭제 실패", msg, parent=self)
+
 
     def open_change_date_popup(self):
         self._open_change_date_input(self.req_no, self.lbl_expected_date.cget("text"), parent=self)

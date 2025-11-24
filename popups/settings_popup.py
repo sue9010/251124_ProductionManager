@@ -18,8 +18,8 @@ class SettingsPopup(BasePopup):
         self.path_entry.insert(0, self.dm.current_excel_path)
         self.path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        ctk.CTkButton(path_frame, text="찾기", width=60, command=self.browse).pack(side="right")
-        ctk.CTkButton(self, text="저장 및 적용", command=self.save, fg_color="#2CC985", hover_color="#26AB71").pack(pady=30)
+        ctk.CTkButton(path_frame, text="찾기", width=60, command=self.browse, fg_color="#555555").pack(side="right")
+        ctk.CTkButton(self, text="저장 및 적용", command=self.save, fg_color="#3B8ED0", hover_color="#36719F").pack(pady=30)
 
     def browse(self):
         file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])

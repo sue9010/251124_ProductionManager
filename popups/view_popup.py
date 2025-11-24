@@ -102,4 +102,19 @@ class ViewPopup(BasePopup):
                     corner_radius=4
                 ).pack(side="left", padx=(0, 10), ipadx=5)
 
-        ctk.CTkButton(self, text="닫기", command=self.destroy, fg_color="#555555", hover_color="#333333").pack(pady=20)
+        footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        footer_frame.pack(pady=20)
+
+        ctk.CTkButton(footer_frame, text="닫기", command=self.destroy, fg_color="#555555", hover_color="#333333").pack(side="left", padx=5)
+        ctk.CTkButton(footer_frame, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B").pack(side="left", padx=5)
+
+    def delete_entry(self):
+        """요청 번호에 해당하는 데이터를 삭제합니다."""
+        if messagebox.askyesno("삭제 확인", f"정말로 요청 번호 [{self.req_no}]의 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", parent=self):
+            success, msg = self.dm.delete_request(self.req_no)
+            if success:
+                messagebox.showinfo("삭제 완료", "데이터가 성공적으로 삭제되었습니다.", parent=self.master)
+                self.destroy()
+                self.refresh_callback()
+            else:
+                messagebox.showerror("삭제 실패", msg, parent=self)
