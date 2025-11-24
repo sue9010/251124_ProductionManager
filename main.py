@@ -18,7 +18,7 @@ class COXProductionManager(ctk.CTk):
 
         # 1. 기본 윈도우 설정
         self.title("COX Production Manager")
-        self.geometry("1600x800")
+        self.geometry("1650x800")
         
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("dark-blue")
@@ -282,7 +282,7 @@ class COXProductionManager(ctk.CTk):
         """달력 팝업을 엽니다."""
         # Check if a calendar window already exists
         if not hasattr(self, "calendar_window") or not self.calendar_window.winfo_exists():
-            self.calendar_window = CalendarView(self, self.dm)
+            self.calendar_window = CalendarView(self, self.dm, self.pm)
         else:
             self.calendar_window.focus() # If it exists, bring it to the front
 

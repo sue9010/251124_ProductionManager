@@ -157,6 +157,16 @@ class DataManager:
             return sorted(self.df["Status"].astype(str).unique().tolist())
         return []
 
+    def get_status_by_req_no(self, req_no):
+        """요청 번호로 현재 상태(Status)를 조회합니다."""
+        if self.df.empty or "번호" not in self.df.columns:
+            return None
+        
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any():
+            return self.df.loc[mask, "Status"].iloc[0]
+        return None
+
     def get_filtered_data(self, status_filter_list=None, search_keyword="", sort_by=None, ascending=True):
         if self.df.empty: return self.df
         filtered_df = self.df.copy()
@@ -225,6 +235,7 @@ class DataManager:
         if mask.any():
             old_status = self.df.loc[mask, "Status"].iloc[0]
             self.df.loc[mask, "Status"] = "Hold"
+            self.df.loc[mask, "출고예정일"] = pd.NaT 
             self._add_log("Hold 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> Hold)")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
@@ -237,12 +248,13 @@ class DataManager:
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 
-    def update_status_to_waiting(self, req_no, reason):
+    def update_status_to_waiting(self, req_no, reason="달력에서 이동"):
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
             old_status = self.df.loc[mask, "Status"].iloc[0]
             self.df.loc[mask, "Status"] = "대기"
             self.df.loc[mask, "대기사유"] = reason
+            self.df.loc[mask, "출고예정일"] = pd.NaT
             self._add_log("대기 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 대기) / 사유: {reason}")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
