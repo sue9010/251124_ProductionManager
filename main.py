@@ -1,10 +1,13 @@
-import customtkinter as ctk
-from tkinter import ttk, messagebox
 import tkinter as tk
+from tkinter import messagebox, ttk
+
+import customtkinter as ctk
+
+from calendar_view import CalendarView
 from config import Config
 from data_manager import DataManager
 from popups import PopupManager
-from calendar_view import CalendarView
+
 
 # ==========================================
 # [App] 메인 프로그램 클래스 (Main View)
@@ -58,10 +61,10 @@ class COXProductionManager(ctk.CTk):
         ctk.CTkButton(top_frame, text="설정", command=self.pm.open_settings, width=60, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(10, 20))
 
         # [NEW] 달력으로 보기 버튼
-        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(0, 5))
+        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 0))
 
         # 2. 검색 버튼
-        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, fg_color="#777777", hover_color="#555555").pack(side="right", padx=(5, 0))
+        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, fg_color="#777777", hover_color="#555555").pack(side="right", padx=(5, 5))
 
         # 3. 검색창
         self.search_entry = ctk.CTkEntry(top_frame, width=200, placeholder_text="번호, 업체, 모델, 시리얼...")
