@@ -1,8 +1,11 @@
-import pandas as pd
-import os
 import json
-from config import Config
+import os
 from datetime import datetime
+
+import pandas as pd
+
+from config import Config
+
 
 class DataManager:
     def __init__(self):
@@ -212,6 +215,36 @@ class DataManager:
             
             # [Log]
             self._add_log("일정 변경", f"번호[{req_no}] 예정일 변경 ({old_date} -> {new_date})")
+            
+            self.save_to_excel()
+            return True
+        return False
+
+    # -----------------------------------------------------
+    # [New] Hold 관련 기능 추가
+    # -----------------------------------------------------
+    def update_status_to_hold(self, req_no):
+        """상태를 Hold로 변경"""
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any():
+            old_status = self.df.loc[mask, "Status"].iloc[0]
+            self.df.loc[mask, "Status"] = "Hold"
+            
+            # [Log]
+            self._add_log("Hold 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> Hold)")
+            
+            self.save_to_excel()
+            return True
+        return False
+
+    def update_status_resume(self, req_no):
+        """Hold 상태를 생산중으로 변경 (재개)"""
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any():
+            self.df.loc[mask, "Status"] = "생산중"
+            
+            # [Log]
+            self._add_log("생산 재개", f"번호[{req_no}] Hold -> 생산중 변경")
             
             self.save_to_excel()
             return True

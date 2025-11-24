@@ -69,7 +69,41 @@ class PopupManager:
             messagebox.showerror("에러", f"파일을 찾을 수 없습니다.\n경로: {path}", parent=self.parent)
 
     # ---------------------------------------------------------
-    # 2. 생산 일정 수립 팝업 (생산 접수 -> 생산중)
+    # [Helper] 상태 변경 (Hold / Resume) 버튼 로직
+    # ---------------------------------------------------------
+    def _add_hold_button(self, parent_frame, req_no, current_status, popup_window):
+        """
+        헤더 영역에 Hold 또는 생산재개 버튼을 추가합니다.
+        pack(side='right')를 사용하므로, PDF 버튼보다 먼저 호출해야 PDF 버튼 왼쪽에 위치합니다.
+        하지만 pack 순서상 PDF 버튼이 먼저 right로 붙고, 그 다음에 이 버튼이 right로 붙으면
+        PDF 버튼의 왼쪽에 위치하게 됩니다.
+        """
+        
+        # 1. 현재 상태가 'Hold'인 경우 -> [생산 재개] 버튼
+        if current_status == "Hold":
+            def resume_production():
+                if messagebox.askyesno("생산 재개", f"번호 [{req_no}]의 생산을 재개하시겠습니까?\n(상태가 '생산중'으로 변경됩니다.)", parent=popup_window):
+                    self.dm.update_status_resume(req_no)
+                    self.refresh_callback()
+                    popup_window.destroy()
+                    
+            ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#2CC985", hover_color="#26AB71",
+                          command=resume_production).pack(side="right", padx=(0, 5))
+
+        # 2. 그 외 상태인 경우 -> [Hold] 버튼
+        else:
+            def set_hold():
+                if messagebox.askyesno("Hold 설정", f"번호 [{req_no}]를 Hold 상태로 변경하시겠습니까?", parent=popup_window):
+                    self.dm.update_status_to_hold(req_no)
+                    self.refresh_callback()
+                    popup_window.destroy()
+
+            ctk.CTkButton(parent_frame, text="Hold", width=60, fg_color="#E04F5F", hover_color="#C0392B", 
+                          command=set_hold).pack(side="right", padx=(0, 5))
+
+
+    # ---------------------------------------------------------
+    # 2. 생산 일정 수립 팝업 (생산 접수 -> 생산중) + (Hold -> 생산중)
     # ---------------------------------------------------------
     def open_schedule_popup(self, req_no):
         target_rows = self.dm.df[self.dm.df["번호"].astype(str) == str(req_no)]
@@ -78,7 +112,8 @@ class PopupManager:
             return
 
         first_row = target_rows.iloc[0]
-        file_path = first_row.get("파일경로", "-") # 파일 경로 가져오기
+        file_path = first_row.get("파일경로", "-") 
+        current_status = str(first_row.get("Status", ""))
 
         common_info = {
             "업체명": first_row.get("업체명", "-"),
@@ -88,7 +123,13 @@ class PopupManager:
         }
 
         popup = ctk.CTkToplevel(self.parent)
-        popup.title(f"생산 일정 수립 - 번호 [{req_no}]")
+        
+        # 타이틀 분기 (재개 vs 수립)
+        if current_status == "Hold":
+            popup.title(f"생산 재개 (Hold 해제) - 번호 [{req_no}]")
+        else:
+            popup.title(f"생산 일정 수립 - 번호 [{req_no}]")
+            
         popup.geometry("800x600")
         popup.attributes("-topmost", True)
 
@@ -96,16 +137,24 @@ class PopupManager:
         info_frame = ctk.CTkFrame(popup, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
 
-        # 헤더 라인 (제목 + PDF 버튼)
+        # 헤더 라인 (제목 + 버튼들)
         header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
         
-        ctk.CTkLabel(header_line, text=f"생산 일정 수립 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        title_text = f"생산 일정 수립 (번호: {req_no})"
+        if current_status == "Hold":
+            title_text = f"생산 재개 (번호: {req_no})"
+            
+        ctk.CTkLabel(header_line, text=title_text, font=("Malgun Gothic", 20, "bold")).pack(side="left")
         
-        # [PDF 보기 버튼 추가]
+        # [배치 순서 중요: Right로 Pack 할 때 먼저 한게 제일 오른쪽]
+        # 1. 제일 오른쪽: PDF 보기 버튼
         if file_path and str(file_path) != "-":
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
+        
+        # 2. 그 왼쪽: Hold / 재개 버튼
+        self._add_hold_button(header_line, req_no, current_status, popup)
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
         grid_frame.pack(fill="x")
@@ -137,7 +186,13 @@ class PopupManager:
         
         date_entry = ctk.CTkEntry(footer, width=200, placeholder_text="yyyy-mm-dd")
         date_entry.pack(side="left", padx=(0, 20))
-        date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        
+        # 기존 예정일이 있으면 채워넣기
+        old_expected = first_row.get("출고예정일", "")
+        if old_expected and str(old_expected) != "-":
+             date_entry.insert(0, str(old_expected))
+        else:
+             date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
 
         def confirm():
             date_str = date_entry.get()
@@ -147,7 +202,7 @@ class PopupManager:
             
             try:
                 if self.dm.update_production_schedule(req_no, date_str):
-                    messagebox.showinfo("성공", "생산 일정이 등록되었습니다.", parent=popup)
+                    messagebox.showinfo("성공", "생산 일정이 등록/수정 되었습니다.", parent=popup)
                     popup.destroy()
                     self.refresh_callback() # 메인 화면 갱신
                 else:
@@ -155,7 +210,11 @@ class PopupManager:
             except Exception as e:
                 messagebox.showerror("오류", f"저장 중 오류: {e}", parent=popup)
 
-        ctk.CTkButton(footer, text="일정 등록 (생산 시작)", command=confirm, fg_color="#2CC985", hover_color="#26AB71", height=40).pack(side="right", padx=(20,0))
+        btn_text = "일정 등록 (생산 시작)"
+        if current_status == "Hold":
+            btn_text = "일정 재등록 및 생산 시작"
+            
+        ctk.CTkButton(footer, text=btn_text, command=confirm, fg_color="#2CC985", hover_color="#26AB71", height=40).pack(side="right", padx=(20,0))
 
     # ---------------------------------------------------------
     # 3. 생산 완료 처리 팝업 (생산중 -> 완료)
@@ -168,6 +227,7 @@ class PopupManager:
 
         first_row = target_rows.iloc[0]
         file_path = first_row.get("파일경로", "-")
+        current_status = str(first_row.get("Status", ""))
 
         common_info = {
             "업체명": first_row.get("업체명", "-"),
@@ -186,26 +246,28 @@ class PopupManager:
         info_frame = ctk.CTkFrame(popup, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
         
-        # 헤더 라인 (제목 + PDF 버튼)
+        # 헤더 라인
         header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
         
         ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
 
-        # [PDF 보기 버튼 추가]
+        # [버튼 배치: 오른쪽부터 순서대로]
+        # 1. PDF 버튼
         if file_path and str(file_path) != "-":
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
+
+        # 2. Hold 버튼
+        self._add_hold_button(header_line, req_no, current_status, popup)
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
         grid_frame.pack(fill="x")
 
         # --- 그리드 배치 ---
-        # 1. 업체명 / 출고요청일 (Row 0)
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
         self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
 
-        # 2. 출고예정일 (Row 1) - [변경] 버튼 포함
         ctk.CTkLabel(grid_frame, text="출고예정일", font=("Malgun Gothic", 12, "bold"), text_color="#3B8ED0").grid(row=1, column=0, padx=10, pady=5, sticky="w")
         
         expected_date_frame = ctk.CTkFrame(grid_frame, fg_color="transparent")
@@ -214,14 +276,11 @@ class PopupManager:
         self.lbl_expected_date = ctk.CTkLabel(expected_date_frame, text=str(common_info["출고예정일"]), font=("Malgun Gothic", 12), text_color="white")
         self.lbl_expected_date.pack(side="left")
 
-        # [변경] 버튼
         def open_change_date_popup():
-            # 현재 열려있는 popup을 부모(parent)로 지정하여 전달
             self._open_change_date_input(req_no, self.lbl_expected_date.cget("text"), parent=popup)
 
         ctk.CTkButton(expected_date_frame, text="변경", width=50, height=24, font=("Malgun Gothic", 11), fg_color="#555555", hover_color="#333333", command=open_change_date_popup).pack(side="left", padx=10)
 
-        # 3. 기타요청사항 / 업체별 특이사항 (Row 2)
         self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 2, 0)
         self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 2, 1)
 
@@ -297,14 +356,9 @@ class PopupManager:
         """출고예정일 변경을 위한 작은 팝업"""
         master = parent if parent else self.parent
         win = ctk.CTkToplevel(master)
-        
-        # transient를 사용하여 master 창 위에 고정
         win.transient(master) 
-        
         win.title("출고예정일 변경")
         win.geometry("300x150")
-        
-        # lift()로 창을 최상단으로 올리고 topmost 설정
         win.lift()
         win.attributes("-topmost", True)
         
@@ -317,22 +371,13 @@ class PopupManager:
         def confirm():
             new_date = entry.get()
             if not new_date: return
-            
-            # DB 업데이트
             self.dm.update_expected_date(req_no, new_date)
-            
-            # 현재 열려있는 팝업의 라벨 업데이트
             if hasattr(self, 'lbl_expected_date'):
                 self.lbl_expected_date.configure(text=new_date)
-            
-            # 메인 리스트 갱신
             self.refresh_callback()
-            
             win.destroy()
             
         ctk.CTkButton(win, text="변경 저장", command=confirm, fg_color="#3B8ED0", width=100).pack(pady=10)
-        
-        # 팝업에 포커스 강제 이동
         win.focus_force() 
         entry.focus_set()
 
@@ -345,35 +390,35 @@ class PopupManager:
             messagebox.showerror("오류", "데이터를 찾을 수 없습니다.")
             return
 
-        # 첫 번째 행에서 공통 정보 추출
         row0 = target_rows.iloc[0]
         file_path = row0.get("파일경로", "-")
+        current_status = str(row0.get("Status", ""))
 
         popup = ctk.CTkToplevel(self.parent)
         popup.title(f"출고 완료 상세 정보 - 번호 [{req_no}]")
         popup.geometry("900x650")
         popup.attributes("-topmost", True)
 
-        # 1. 공통 정보 섹션 (헤더)
         header_frame = ctk.CTkFrame(popup, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=20)
 
-        # 헤더 라인 (제목 + PDF 버튼)
         header_line = ctk.CTkFrame(header_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
 
         ctk.CTkLabel(header_line, text=f"출고 완료 상세 정보 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
 
-        # [PDF 보기 버튼 추가]
+        # [버튼 배치]
+        # 1. PDF 버튼
         if file_path and str(file_path) != "-":
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
+        
+        # 2. Hold 버튼 (완료 상태에서도 Hold 가능하도록)
+        self._add_hold_button(header_line, req_no, current_status, popup)
 
-        # 정보 그리드 표시
         grid_frame = ctk.CTkFrame(header_frame, fg_color="#2b2b2b")
         grid_frame.pack(fill="x")
 
-        # 표시할 공통 항목 정의
         common_items = [
             ("업체명", row0.get("업체명", "-")),
             ("Status", row0.get("Status", "-")),
@@ -385,12 +430,9 @@ class PopupManager:
             ("업체별 특이사항", row0.get("업체별 특이사항", "-"))
         ]
 
-        # 2열 그리드로 배치
         for i, (label, value) in enumerate(common_items):
             r = i // 2
             c = (i % 2) * 2
-            
-            # 라벨
             ctk.CTkLabel(
                 grid_frame, 
                 text=label, 
@@ -398,7 +440,6 @@ class PopupManager:
                 text_color="#3B8ED0"
             ).grid(row=r, column=c, padx=15, pady=8, sticky="w")
             
-            # 값
             ctk.CTkLabel(
                 grid_frame, 
                 text=str(value), 
@@ -406,30 +447,24 @@ class PopupManager:
                 text_color="white"
             ).grid(row=r, column=c+1, padx=15, pady=8, sticky="w")
 
-        # 2. 품목 정보 섹션 (리스트)
         ctk.CTkLabel(popup, text="품목별 상세 정보", font=("Malgun Gothic", 14, "bold")).pack(anchor="w", padx=20, pady=(10, 5))
 
         scroll_frame = ctk.CTkScrollableFrame(popup, height=350, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         for idx, row in target_rows.iterrows():
-            # 카드 프레임
             card = ctk.CTkFrame(scroll_frame, fg_color="#333333", corner_radius=6)
             card.pack(fill="x", pady=5, padx=5)
 
-            # 내용 컨테이너
             content = ctk.CTkFrame(card, fg_color="transparent")
             content.pack(fill="both", expand=True, padx=15, pady=10)
 
-            # 모델명 & 상세 (강조)
             model_info = f"[{row.get('모델명')}] {row.get('상세')}"
             ctk.CTkLabel(content, text=model_info, font=("Malgun Gothic", 14, "bold")).pack(anchor="w")
 
-            # 세부 속성 (한 줄에 배치하거나 여러 줄 배치)
             details_frame = ctk.CTkFrame(content, fg_color="transparent")
             details_frame.pack(fill="x", pady=(5, 0))
             
-            # 수량, 시리얼, 렌즈
             infos = [
                 f"수량: {row.get('수량')}",
                 f"시리얼: {row.get('시리얼번호')}",
@@ -441,9 +476,8 @@ class PopupManager:
                     details_frame, 
                     text=info, 
                     font=("Malgun Gothic", 12), 
-                    fg_color="#444444", # 뱃지 느낌 배경
+                    fg_color="#444444", 
                     corner_radius=4
                 ).pack(side="left", padx=(0, 10), ipadx=5)
 
-        # 닫기 버튼
         ctk.CTkButton(popup, text="닫기", command=popup.destroy, fg_color="#555555", hover_color="#333333").pack(pady=20)

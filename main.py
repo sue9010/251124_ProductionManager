@@ -27,10 +27,12 @@ class COXProductionManager(ctk.CTk):
         self.dm = DataManager() # 데이터 로직 담당
         self.pm = PopupManager(self, self.dm, self.refresh_ui)
 
-        # 필터 상태 관리 (기본값: 접수/생산중=True, 완료=False)
+        # 필터 상태 관리 (기본값: 접수/생산중=True, 완료=False, Hold=True)
+        # [수정] Hold 필터 추가
         self.filter_states = {
             "생산 접수": True,
             "생산중": True,
+            "Hold": False,
             "완료": False
         }
 
@@ -81,10 +83,15 @@ class COXProductionManager(ctk.CTk):
         ctk.CTkFrame(top_frame, width=2, height=30, fg_color="#444444").pack(side="right", padx=10)
         self.filter_buttons = {}
 
-        # (3) 완료 버튼
+        # (4) 완료 버튼
         self.btn_complete = ctk.CTkButton(top_frame, text="완료", command=lambda: self.toggle_filter("완료"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
         self.btn_complete.pack(side="right", padx=5)
         self.filter_buttons["완료"] = self.btn_complete
+
+        # [추가] (3) Hold 버튼
+        self.btn_hold = ctk.CTkButton(top_frame, text="Hold", command=lambda: self.toggle_filter("Hold"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.btn_hold.pack(side="right", padx=5)
+        self.filter_buttons["Hold"] = self.btn_hold
 
         # (2) 생산중 버튼
         self.btn_prod = ctk.CTkButton(top_frame, text="생산중", command=lambda: self.toggle_filter("생산중"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
@@ -165,17 +172,25 @@ class COXProductionManager(ctk.CTk):
         inactive_fg = "transparent" # 비활성 배경
         inactive_border = "#555555" # 비활성 테두리
         text_color_inactive = "#AAAAAA"
+        
+        # Hold 버튼의 경우 특별한 색상(주황색 등)을 주고 싶다면 여기서 분기 처리가능
+        # 현재는 일괄적으로 Blue 사용
 
         for status, btn in self.filter_buttons.items():
             is_active = self.filter_states.get(status, False)
             if is_active:
-                btn.configure(fg_color=active_color, text_color=text_color_active, border_width=0)
+                # [옵션] Hold 버튼은 주황색 계열로 표시
+                if status == "Hold":
+                    btn.configure(fg_color="#E04F5F", text_color=text_color_active, border_width=0)
+                else:
+                    btn.configure(fg_color=active_color, text_color=text_color_active, border_width=0)
             else:
                 btn.configure(fg_color=inactive_fg, text_color=text_color_inactive, border_width=2, border_color=inactive_border)
 
     def reset_default_filters(self):
         self.filter_states["생산 접수"] = True
         self.filter_states["생산중"] = True
+        self.filter_states["Hold"] = False
         self.filter_states["완료"] = False
         self.update_filter_buttons_visuals()
 
@@ -240,6 +255,9 @@ class COXProductionManager(ctk.CTk):
         status = str(values[-1]).strip()
 
         if status == "생산 접수":
+            self.pm.open_schedule_popup(req_no)
+        elif status == "Hold":
+            # [수정] Hold 상태일 때도 생산 일정 수립(재개) 팝업 오픈
             self.pm.open_schedule_popup(req_no)
         elif status == "생산중":
             self.pm.open_complete_popup(req_no)
