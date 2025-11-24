@@ -64,16 +64,16 @@ class COXProductionManager(ctk.CTk):
 
         # --- [우측 컨트롤 그룹] ---
         # 1. 설정 버튼
-        ctk.CTkButton(top_frame, text="설정", command=self.pm.open_settings, width=60, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(10, 20))
+        ctk.CTkButton(top_frame, text="설정", command=self.pm.open_settings, width=60, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(10, 20))
 
         # [NEW] 달력으로 보기 버튼
-        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 0))
+        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 0))
 
         # 2. 검색 버튼
-        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, fg_color="#777777", hover_color="#555555").pack(side="right", padx=(5, 5))
+        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, height=40,fg_color="#777777", hover_color="#555555").pack(side="right", padx=(5, 5))
 
         # 3. 검색창
-        self.search_entry = ctk.CTkEntry(top_frame, width=200, placeholder_text="번호, 업체, 모델, 시리얼...")
+        self.search_entry = ctk.CTkEntry(top_frame, width=200, height=40, placeholder_text="번호, 업체, 모델, 시리얼...")
         self.search_entry.pack(side="right", padx=(10, 5))
         self.search_entry.bind("<Return>", lambda e: self.refresh_ui())
 
@@ -90,27 +90,27 @@ class COXProductionManager(ctk.CTk):
         self.filter_buttons = {}
 
         # (5) 완료 버튼
-        self.btn_complete = ctk.CTkButton(top_frame, text="완료", command=lambda: self.toggle_filter("완료"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.btn_complete = ctk.CTkButton(top_frame, text="완료", command=lambda: self.toggle_filter("완료"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.btn_complete.pack(side="right", padx=5)
         self.filter_buttons["완료"] = self.btn_complete
 
         # (4) Hold 버튼
-        self.btn_hold = ctk.CTkButton(top_frame, text="Hold", command=lambda: self.toggle_filter("Hold"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.btn_hold = ctk.CTkButton(top_frame, text="Hold", command=lambda: self.toggle_filter("Hold"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.btn_hold.pack(side="right", padx=5)
         self.filter_buttons["Hold"] = self.btn_hold
 
         # (3) 생산중 버튼
-        self.btn_prod = ctk.CTkButton(top_frame, text="생산중", command=lambda: self.toggle_filter("생산중"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.btn_prod = ctk.CTkButton(top_frame, text="생산중", command=lambda: self.toggle_filter("생산중"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.btn_prod.pack(side="right", padx=5)
         self.filter_buttons["생산중"] = self.btn_prod
 
         # (2) [New] 대기 버튼
-        self.btn_waiting = ctk.CTkButton(top_frame, text="대기", command=lambda: self.toggle_filter("대기"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.btn_waiting = ctk.CTkButton(top_frame, text="대기", command=lambda: self.toggle_filter("대기"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.btn_waiting.pack(side="right", padx=5)
         self.filter_buttons["대기"] = self.btn_waiting
 
         # (1) 생산 접수 버튼
-        self.btn_receipt = ctk.CTkButton(top_frame, text="생산 접수", command=lambda: self.toggle_filter("생산 접수"), width=80, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.btn_receipt = ctk.CTkButton(top_frame, text="생산 접수", command=lambda: self.toggle_filter("생산 접수"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.btn_receipt.pack(side="right", padx=5)
         self.filter_buttons["생산 접수"] = self.btn_receipt
 
@@ -200,7 +200,7 @@ class COXProductionManager(ctk.CTk):
 
     def reset_default_filters(self):
         self.filter_states["생산 접수"] = True
-        self.filter_states["대기"] = True
+        self.filter_states["대기"] = False
         self.filter_states["생산중"] = True
         self.filter_states["Hold"] = False
         self.filter_states["완료"] = False

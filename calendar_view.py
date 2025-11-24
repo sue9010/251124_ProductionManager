@@ -12,7 +12,7 @@ class CalendarView(ctk.CTkToplevel):
         super().__init__(parent)
         self.dm = dm
 
-        self.title("생산 일정 달력 (4주) & 대기/Hold 목록")
+        self.title("생산 일정 달력")
         self.geometry("1500x850")
         self.attributes("-topmost", True)
 
