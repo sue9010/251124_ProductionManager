@@ -48,8 +48,8 @@ class COXProductionManager(ctk.CTk):
         # 4. 이벤트 바인딩
         self.tree.bind("<Double-1>", self.on_double_click)
 
-        # 5. 초기 데이터 로드 시도
-        self.load_data_btn_click()
+        # 5. 초기 데이터 로드 시도 (팝업 없이 실행)
+        self.load_data_btn_click(show_msg=False)
 
     def create_widgets(self):
         # 상단 프레임
@@ -182,13 +182,15 @@ class COXProductionManager(ctk.CTk):
     # -----------------------------------------------------
     # Event Handlers & Logic Connection
     # -----------------------------------------------------
-    def load_data_btn_click(self):
-        """데이터 읽어오기 버튼 클릭 시"""
+    def load_data_btn_click(self, show_msg=True):
+        """데이터 읽어오기 버튼 클릭 시 (show_msg=False면 팝업 숨김)"""
         try:
             success, path_name = self.dm.load_data()
             if success:
-                messagebox.showinfo("성공", f"데이터를 불러왔습니다.\n({path_name})")
+                if show_msg:
+                    messagebox.showinfo("성공", f"데이터를 불러왔습니다.\n({path_name})")
             else:
+                # 파일이 없을 때는 show_msg 여부와 상관없이 물어보는 것이 좋습니다.
                 if messagebox.askyesno("파일 없음", "파일이 없습니다. 테스트용 데이터를 생성할까요?"):
                     self.dm.create_dummy_data()
                 else:

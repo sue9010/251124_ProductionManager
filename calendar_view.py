@@ -27,6 +27,9 @@ class CalendarView(ctk.CTkToplevel):
             "window": None,    # 잔상 윈도우
             "origin_date": None # 원래 날짜
         }
+        
+        # [이벤트 바인딩] 창 닫기 버튼(X) 클릭 시 처리
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.create_widgets()
         self.update_calendar()
@@ -272,3 +275,18 @@ class CalendarView(ctk.CTkToplevel):
             self.month = 1
             self.year += 1
         self.update_calendar()
+
+    # -------------------------------------------------------------------------
+    # [추가] 창 닫기 이벤트 핸들러
+    # -------------------------------------------------------------------------
+    def on_closing(self):
+        """창이 닫힐 때 데이터를 새로고침하고 메인 UI를 업데이트합니다."""
+        # 1. 엑셀 파일에서 데이터 다시 로드
+        self.dm.load_data()
+        
+        # 2. 메인 윈도우(부모)의 UI 리프레시 호출
+        if hasattr(self.master, "refresh_ui"):
+            self.master.refresh_ui()
+            
+        # 3. 창 종료
+        self.destroy()
