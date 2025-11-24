@@ -48,6 +48,9 @@ class COXProductionManager(ctk.CTk):
         # 4. 이벤트 바인딩
         self.tree.bind("<Double-1>", self.on_double_click)
 
+        # 5. 초기 데이터 로드 시도
+        self.load_data_btn_click()
+
     def create_widgets(self):
         # 상단 프레임
         top_frame = ctk.CTkFrame(self, corner_radius=10)
