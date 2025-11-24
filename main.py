@@ -6,7 +6,7 @@ import customtkinter as ctk
 from calendar_view import CalendarView
 from config import Config
 from data_manager import DataManager
-from popups import PopupManager
+from popup_manager import PopupManager
 
 
 # ==========================================
