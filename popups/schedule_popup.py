@@ -57,7 +57,7 @@ class SchedulePopup(BasePopup):
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
         # 3. 그 왼쪽: 생산대기 버튼 (팝업 오픈)
-        ctk.CTkButton(header_line, text="생산대기", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
+        ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
                       command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
 
 
@@ -103,10 +103,11 @@ class SchedulePopup(BasePopup):
         if self.current_status == "Hold":
             btn_text = "일정 재등록 및 생산 시작"
             
-        ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color="#3B8ED0", hover_color="#36719F", height=40).pack(side="right", padx=(5,0))
+        ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color="#3B8ED0", hover_color="#36719F").pack(side="right", padx=(5,0))
         
         # 삭제 버튼 추가
-        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B", height=40).pack(side="right", padx=(0,0))
+        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B").pack(side="right", padx=(0,0))
+        
 
     def delete_entry(self):
         """요청 번호에 해당하는 데이터를 삭제합니다."""

@@ -22,6 +22,13 @@ class BasePopup(ctk.CTkToplevel):
         # Helper to store entry widgets for later processing
         self.entry_widgets = []
 
+        # ESC 키로 창 닫기
+        self.bind("<Escape>", self.close)
+
+    def close(self, event=None):
+        """창을 닫습니다."""
+        self.destroy()
+
     def center_window(self, width, height):
         """화면 중앙에 윈도우를 배치하는 함수"""
         screen_width = self.winfo_screenwidth()
@@ -51,13 +58,8 @@ class BasePopup(ctk.CTkToplevel):
         """
         if current_status == "Hold":
             def resume_production():
-                if messagebox.askyesno("생산 재개", f"번호 [{req_no}]의 생산을 재개하시겠습니까?\n(상태가 '생산중'으로 변경됩니다.)", parent=self):
-                    success, msg = self.dm.update_status_resume(req_no)
-                    if success:
-                        self.refresh_callback()
-                        self.destroy()
-                    else:
-                        messagebox.showerror("실패", msg, parent=self)
+                # 날짜를 입력받는 팝업을 새로 연다
+                self._open_resume_production_popup(req_no)
                     
             ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#3B8ED0", hover_color="#36719F",
                           command=resume_production).pack(side="right", padx=(0, 5))
@@ -71,7 +73,7 @@ class BasePopup(ctk.CTkToplevel):
                     else:
                         messagebox.showerror("실패", msg, parent=self)
 
-            ctk.CTkButton(parent_frame, text="Hold", width=60, fg_color="#E04F5F", hover_color="#C0392B", 
+            ctk.CTkButton(parent_frame, text="Hold", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
                           command=set_hold).pack(side="right", padx=(0, 5))
 
     def _add_grid_item(self, parent, label, value, r, c):
@@ -99,6 +101,9 @@ class BasePopup(ctk.CTkToplevel):
         win.lift()
         win.attributes("-topmost", True)
         
+        # ESC 키로 창 닫기
+        win.bind("<Escape>", lambda e: win.destroy())
+
         ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=("Malgun Gothic", 12)).pack(pady=(20, 10))
         
         entry = ctk.CTkEntry(win, width=150)
@@ -119,6 +124,47 @@ class BasePopup(ctk.CTkToplevel):
                 messagebox.showerror("실패", msg, parent=win)
             
         ctk.CTkButton(win, text="변경 저장", command=confirm, fg_color="#3B8ED0", width=100).pack(pady=10)
+        win.focus_force() 
+        entry.focus_set()
+
+    def _open_resume_production_popup(self, req_no):
+        """생산 재개를 위한 출고예정일 입력 팝업"""
+        win = ctk.CTkToplevel(self)
+        win.transient(self) 
+        win.title("생산 재개")
+        
+        width, height = 350, 180
+        screen_width = win.winfo_screenwidth()
+        screen_height = win.winfo_screenheight()
+        x = (screen_width / 2) - (width / 2)
+        y = (screen_height / 2) - (height / 2)
+        win.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+
+        win.lift()
+        win.attributes("-topmost", True)
+        win.bind("<Escape>", lambda e: win.destroy())
+        
+        ctk.CTkLabel(win, text=f"번호 [{req_no}] 생산을 재개합니다.\n새로운 출고예정일을 입력하세요.", font=("Malgun Gothic", 12)).pack(pady=(20, 10))
+        
+        entry = ctk.CTkEntry(win, width=150)
+        entry.pack(pady=5)
+        entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        
+        def confirm():
+            new_date = entry.get()
+            if not new_date:
+                messagebox.showwarning("입력 오류", "날짜를 입력해주세요.", parent=win)
+                return
+
+            success, msg = self.dm.update_status_resume(req_no, new_date)
+            if success:
+                self.refresh_callback()
+                win.destroy() # 날짜 입력 팝업 닫기
+                self.destroy() # 기본 팝업 (상세보기) 닫기
+            else:
+                messagebox.showerror("실패", msg, parent=win)
+            
+        ctk.CTkButton(win, text="저장 및 생산 재개", command=confirm, fg_color="#3B8ED0", width=120).pack(pady=10)
         win.focus_force() 
         entry.focus_set()
 

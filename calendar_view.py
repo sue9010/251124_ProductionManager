@@ -85,12 +85,14 @@ class CalendarView(ctk.CTkToplevel):
         # [수정됨] padx=0 -> padx=5 (목록 상자 좌우에 5px 여백을 주어 답답함 해소)
         self.hold_scroll = ctk.CTkScrollableFrame(self.sidebar_frame, height=300, fg_color="#333333", corner_radius=0)
         self.hold_scroll.pack(fill="both", expand=True, padx=5, pady=(0, 10))
+        self.hold_scroll._scrollbar.grid_forget()
 
         ctk.CTkLabel(self.sidebar_frame, text="⏳ 생산 대기 목록", font=("Malgun Gothic", 14, "bold"), text_color="#D35400").pack(pady=(10, 5), padx=10, anchor="w")
         
         # [수정됨] padx=0 -> padx=5
         self.waiting_scroll = ctk.CTkScrollableFrame(self.sidebar_frame, height=300, fg_color="#333333", corner_radius=0)
         self.waiting_scroll.pack(fill="both", expand=True, padx=5, pady=(0, 15))
+        self.waiting_scroll._scrollbar.grid_forget()
 
     def refresh_data(self):
         self.dm.load_data()

@@ -240,11 +240,12 @@ class DataManager:
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 
-    def update_status_resume(self, req_no):
+    def update_status_resume(self, req_no, new_date):
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
             self.df.loc[mask, "Status"] = "생산중"
-            self._add_log("생산 재개", f"번호[{req_no}] Hold -> 생산중 변경")
+            self.df.loc[mask, "출고예정일"] = new_date
+            self._add_log("생산 재개", f"번호[{req_no}] Hold -> 생산중 변경, 예정일({new_date}) 설정")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 

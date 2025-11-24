@@ -111,10 +111,10 @@ class CompletePopup(BasePopup):
         self.e_memo = ctk.CTkEntry(footer, width=250)
         self.e_memo.pack(side="left", fill="x", expand=True, padx=(0, 20))
 
-        ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color="#3B8ED0", hover_color="#36719F", width=150, height=40).pack(side="right")
+        ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color="#3B8ED0", hover_color="#36719F", width=150).pack(side="right")
         
         # 삭제 버튼 추가
-        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B", width=150, height=40).pack(side="right", padx=(0, 5))
+        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B", width=150).pack(side="right", padx=(0, 5))
 
     def delete_entry(self):
         """요청 번호에 해당하는 데이터를 삭제합니다."""
