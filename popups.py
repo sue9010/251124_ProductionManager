@@ -1,6 +1,9 @@
-import customtkinter as ctk
-from tkinter import messagebox, filedialog
+import os  # 파일 실행을 위해 추가
 from datetime import datetime
+from tkinter import filedialog, messagebox
+
+import customtkinter as ctk
+
 
 class PopupManager:
     def __init__(self, parent, data_manager, refresh_callback):
@@ -48,6 +51,24 @@ class PopupManager:
         ctk.CTkButton(window, text="저장 및 적용", command=save, fg_color="#2CC985", hover_color="#26AB71").pack(pady=30)
 
     # ---------------------------------------------------------
+    # [Helper] 파일 열기 로직
+    # ---------------------------------------------------------
+    def _open_pdf_file(self, path):
+        """주어진 경로의 파일을 시스템 기본 프로그램으로 엽니다."""
+        if not path or str(path).strip() == "-" or str(path).strip() == "":
+            messagebox.showinfo("알림", "등록된 파일 경로가 없습니다.", parent=self.parent)
+            return
+        
+        # 엑셀에서 읽어온 경로가 실제로 존재하는지 확인
+        if os.path.exists(path):
+            try:
+                os.startfile(path) # 윈도우 기본 연결 프로그램으로 실행 (PDF 등)
+            except Exception as e:
+                messagebox.showerror("에러", f"파일을 여는 중 오류가 발생했습니다.\n{e}", parent=self.parent)
+        else:
+            messagebox.showerror("에러", f"파일을 찾을 수 없습니다.\n경로: {path}", parent=self.parent)
+
+    # ---------------------------------------------------------
     # 2. 생산 일정 수립 팝업 (생산 접수 -> 생산중)
     # ---------------------------------------------------------
     def open_schedule_popup(self, req_no):
@@ -57,6 +78,8 @@ class PopupManager:
             return
 
         first_row = target_rows.iloc[0]
+        file_path = first_row.get("파일경로", "-") # 파일 경로 가져오기
+
         common_info = {
             "업체명": first_row.get("업체명", "-"),
             "기타요청사항": first_row.get("기타요청사항", "-"),
@@ -69,10 +92,20 @@ class PopupManager:
         popup.geometry("800x600")
         popup.attributes("-topmost", True)
 
-        # 상단 정보
+        # 상단 정보 프레임
         info_frame = ctk.CTkFrame(popup, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
-        ctk.CTkLabel(info_frame, text=f"생산 일정 수립 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(anchor="w", pady=(0, 10))
+
+        # 헤더 라인 (제목 + PDF 버튼)
+        header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
+        header_line.pack(fill="x", pady=(0, 10))
+        
+        ctk.CTkLabel(header_line, text=f"생산 일정 수립 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        
+        # [PDF 보기 버튼 추가]
+        if file_path and str(file_path) != "-":
+            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
+                          command=lambda: self._open_pdf_file(file_path)).pack(side="right")
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
         grid_frame.pack(fill="x")
@@ -134,6 +167,8 @@ class PopupManager:
             return
 
         first_row = target_rows.iloc[0]
+        file_path = first_row.get("파일경로", "-")
+
         common_info = {
             "업체명": first_row.get("업체명", "-"),
             "기타요청사항": first_row.get("기타요청사항", "-"),
@@ -150,7 +185,17 @@ class PopupManager:
         # 상단 정보
         info_frame = ctk.CTkFrame(popup, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
-        ctk.CTkLabel(info_frame, text=f"생산 완료 처리 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(anchor="w", pady=(0, 10))
+        
+        # 헤더 라인 (제목 + PDF 버튼)
+        header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
+        header_line.pack(fill="x", pady=(0, 10))
+        
+        ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+
+        # [PDF 보기 버튼 추가]
+        if file_path and str(file_path) != "-":
+            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
+                          command=lambda: self._open_pdf_file(file_path)).pack(side="right")
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
         grid_frame.pack(fill="x")
@@ -171,7 +216,7 @@ class PopupManager:
 
         # [변경] 버튼
         def open_change_date_popup():
-            # [핵심 수정] 현재 열려있는 popup을 부모(parent)로 지정하여 전달
+            # 현재 열려있는 popup을 부모(parent)로 지정하여 전달
             self._open_change_date_input(req_no, self.lbl_expected_date.cget("text"), parent=popup)
 
         ctk.CTkButton(expected_date_frame, text="변경", width=50, height=24, font=("Malgun Gothic", 11), fg_color="#555555", hover_color="#333333", command=open_change_date_popup).pack(side="left", padx=10)
@@ -253,13 +298,13 @@ class PopupManager:
         master = parent if parent else self.parent
         win = ctk.CTkToplevel(master)
         
-        # [핵심 수정] transient를 사용하여 master 창 위에 고정
+        # transient를 사용하여 master 창 위에 고정
         win.transient(master) 
         
         win.title("출고예정일 변경")
         win.geometry("300x150")
         
-        # [핵심 수정] lift()로 창을 최상단으로 올리고 topmost 설정
+        # lift()로 창을 최상단으로 올리고 topmost 설정
         win.lift()
         win.attributes("-topmost", True)
         
@@ -302,7 +347,8 @@ class PopupManager:
 
         # 첫 번째 행에서 공통 정보 추출
         row0 = target_rows.iloc[0]
-        
+        file_path = row0.get("파일경로", "-")
+
         popup = ctk.CTkToplevel(self.parent)
         popup.title(f"출고 완료 상세 정보 - 번호 [{req_no}]")
         popup.geometry("900x650")
@@ -312,7 +358,16 @@ class PopupManager:
         header_frame = ctk.CTkFrame(popup, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=20)
 
-        ctk.CTkLabel(header_frame, text=f"출고 완료 상세 정보 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(anchor="w", pady=(0, 10))
+        # 헤더 라인 (제목 + PDF 버튼)
+        header_line = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_line.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(header_line, text=f"출고 완료 상세 정보 (번호: {req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+
+        # [PDF 보기 버튼 추가]
+        if file_path and str(file_path) != "-":
+            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
+                          command=lambda: self._open_pdf_file(file_path)).pack(side="right")
 
         # 정보 그리드 표시
         grid_frame = ctk.CTkFrame(header_frame, fg_color="#2b2b2b")
@@ -343,7 +398,7 @@ class PopupManager:
                 text_color="#3B8ED0"
             ).grid(row=r, column=c, padx=15, pady=8, sticky="w")
             
-            # 값 (텍스트가 길 경우를 대비해 width 제한을 두거나 줄바꿈 고려 가능하지만 여기선 단순 라벨)
+            # 값
             ctk.CTkLabel(
                 grid_frame, 
                 text=str(value), 
