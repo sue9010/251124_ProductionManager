@@ -56,9 +56,13 @@ class SchedulePopup(BasePopup):
         # 2. 그 왼쪽: Hold / 재개 버튼
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
-        # 3. 그 왼쪽: 생산대기 버튼 (팝업 오픈)
-        ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
-                      command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
+        # 3. 그 왼쪽: 생산대기 / 생산재개 버튼
+        if self.current_status == "대기":
+            ctk.CTkButton(header_line, text="생산 재개", width=80, fg_color="#3B8ED0", hover_color="#36719F",
+                          command=self.open_resume_from_waiting_popup).pack(side="right", padx=(0, 5))
+        elif self.current_status != "Hold":
+            ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
+                          command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
 
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
@@ -154,6 +158,40 @@ class SchedulePopup(BasePopup):
         
         ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color="#3B8ED0", hover_color="#36719F", width=80).pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color="#555555", hover_color="#333333", width=80).pack(side="left", padx=5)
+
+    def open_resume_from_waiting_popup(self):
+        win = ctk.CTkToplevel(self)
+        win.title("생산 재개")
+        win.geometry("400x200")
+        win.attributes("-topmost", True)
+        
+        ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=("Malgun Gothic", 14, "bold")).pack(pady=(20, 10))
+        
+        e_date = ctk.CTkEntry(win, width=300)
+        e_date.pack(pady=5)
+        e_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        e_date.focus_set()
+        
+        def submit_date():
+            date_str = e_date.get().strip()
+            if len(date_str) != 10:
+                messagebox.showwarning("경고", "날짜 형식을 확인해주세요 (yyyy-mm-dd)", parent=win)
+                return
+            
+            success, msg = self.dm.update_production_schedule(self.req_no, date_str)
+            if success:
+                messagebox.showinfo("성공", "생산이 재개되었습니다.", parent=win)
+                win.destroy()
+                self.destroy()
+                self.refresh_callback()
+            else:
+                messagebox.showerror("실패", msg, parent=win)
+        
+        btn_frame = ctk.CTkFrame(win, fg_color="transparent")
+        btn_frame.pack(pady=20)
+        
+        ctk.CTkButton(btn_frame, text="확인", command=submit_date, fg_color="#3B8ED0", hover_color="#36719F", width=80).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="취소", command=win.destroy, fg_color="#555555", hover_color="#333333", width=80).pack(side="left", padx=5)
 
     def confirm(self):
         date_str = self.date_entry.get()

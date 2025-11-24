@@ -64,6 +64,7 @@ class BasePopup(ctk.CTkToplevel):
             ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#3B8ED0", hover_color="#36719F",
                           command=resume_production).pack(side="right", padx=(0, 5))
         else:
+        # elif current_status != "대기":
             def set_hold():
                 if messagebox.askyesno("Hold 설정", f"번호 [{req_no}]를 Hold 상태로 변경하시겠습니까?", parent=self):
                     success, msg = self.dm.update_status_to_hold(req_no)
