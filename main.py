@@ -8,6 +8,7 @@ from data_manager import DataManager
 from popup_manager import PopupManager
 from styles import COLORS, FONTS
 from views.calendar_view import CalendarView
+from views.gantt_view import GanttView
 from views.kanban_view import KanbanView
 # views 패키지에서 뷰 가져오기
 from views.table_view import TableView
@@ -22,11 +23,12 @@ class COXProductionManager(ctk.CTk):
         self.geometry("1650x900")
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("dark-blue")
+        
+        # [핵심 수정] 종료 시 호출할 함수 연결
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # 2. 모듈 초기화
         self.dm = DataManager()
-        # [변경] PopupManager 콜백은 현재 활성화된 뷰의 리프레시를 호출하도록 수정 필요
-        # 임시로 self.refresh_current_view 연결
         self.pm = PopupManager(self, self.dm, self.refresh_current_view)
 
         self.current_view = None
@@ -39,7 +41,7 @@ class COXProductionManager(ctk.CTk):
         self.create_sidebar()
         self.create_content_area()
         
-        # 전역 클릭 이벤트 (드롭다운 닫기용) - TableView의 로직을 호출
+        # 전역 클릭 이벤트 (드롭다운 닫기용)
         self.bind("<Button-1>", self.handle_global_click)
 
         # 5. 초기화
@@ -82,10 +84,11 @@ class COXProductionManager(ctk.CTk):
         self.content_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.content_frame.grid(row=0, column=1, sticky="nsew")
         
-        # 뷰 인스턴스 생성 (미리 생성해두고 pack/forget으로 전환)
+        # 뷰 인스턴스 생성
         self.view_table = TableView(self.content_frame, self.dm, self.pm)
         self.view_calendar = CalendarView(self.content_frame, self.dm, self.pm)
         self.view_kanban = KanbanView(self.content_frame, self.dm, self.pm)
+        self.view_gantt = GanttView(self.content_frame, self.dm, self.pm)
 
     def switch_view(self, view_name, view_instance):
         # 버튼 스타일 업데이트
@@ -102,7 +105,7 @@ class COXProductionManager(ctk.CTk):
         view_instance.pack(fill="both", expand=True)
         self.current_view = view_instance
         
-        # 데이터 리프레시 (선택 사항)
+        # 데이터 리프레시
         if hasattr(view_instance, "refresh_data"):
             view_instance.refresh_data()
 
@@ -113,14 +116,12 @@ class COXProductionManager(ctk.CTk):
         self.switch_view("📅  생산 달력", self.view_calendar)
 
     def show_kanban_view(self):
-        # [수정됨] messagebox 제거하고 정상적으로 화면 전환 호출
         self.switch_view("📋  칸반 보드", self.view_kanban)
 
     def show_gantt_view(self):
-        messagebox.showinfo("준비중", "간트 차트는 개발 중입니다.")
+        self.switch_view("📈  간트 차트", self.view_gantt)
 
     def reload_all_data(self):
-        """전체 데이터 다시 로드 및 현재 뷰 갱신"""
         success, msg = self.dm.load_data()
         if success:
             messagebox.showinfo("완료", "데이터를 새로고침했습니다.")
@@ -136,33 +137,29 @@ class COXProductionManager(ctk.CTk):
             self.current_view.refresh_data()
 
     def handle_global_click(self, event):
-        """Table View의 드롭다운을 닫기 위한 전역 이벤트 핸들러"""
-        # 현재 뷰가 테이블 뷰일 때만 전달
         if self.current_view == self.view_table:
-            # 간단하게: 드롭다운이 열려있으면, 클릭된 위젯이 드롭다운이 아닐 때 닫음
             if self.view_table.is_dropdown_open:
-                # 클릭 좌표
                 x, y = event.x_root, event.y_root
                 dd = self.view_table.dropdown_frame
                 btn = self.view_table.filter_dropdown_btn
                 
-                # 드롭다운 영역 확인
-                dd_x = dd.winfo_rootx()
-                dd_y = dd.winfo_rooty()
-                dd_w = dd.winfo_width()
-                dd_h = dd.winfo_height()
+                dd_x, dd_y = dd.winfo_rootx(), dd.winfo_rooty()
+                dd_w, dd_h = dd.winfo_width(), dd.winfo_height()
                 
-                # 버튼 영역 확인
-                btn_x = btn.winfo_rootx()
-                btn_y = btn.winfo_rooty()
-                btn_w = btn.winfo_width()
-                btn_h = btn.winfo_height()
+                btn_x, btn_y = btn.winfo_rootx(), btn.winfo_rooty()
+                btn_w, btn_h = btn.winfo_width(), btn.winfo_height()
 
                 in_dd = (dd_x <= x <= dd_x + dd_w) and (dd_y <= y <= dd_y + dd_h)
                 in_btn = (btn_x <= x <= btn_x + btn_w) and (btn_y <= y <= btn_y + btn_h)
 
                 if not in_dd and not in_btn:
                     self.view_table.close_dropdown()
+
+    # [핵심 수정] 종료 처리 핸들러
+    def on_closing(self):
+        # 앱 종료 시 필요한 정리 작업을 수행하고 윈도우를 닫습니다.
+        self.quit()    # 메인루프 중단
+        self.destroy() # 위젯 파괴
 
 if __name__ == "__main__":
     app = COXProductionManager()
