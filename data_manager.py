@@ -234,9 +234,9 @@ class DataManager:
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
             old_status = self.df.loc[mask, "Status"].iloc[0]
-            self.df.loc[mask, "Status"] = "Hold"
+            self.df.loc[mask, "Status"] = "중지"
             self.df.loc[mask, "출고예정일"] = pd.NaT 
-            self._add_log("Hold 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> Hold)")
+            self._add_log("중지 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 중지)")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 
@@ -245,7 +245,7 @@ class DataManager:
         if mask.any():
             self.df.loc[mask, "Status"] = "생산중"
             self.df.loc[mask, "출고예정일"] = new_date
-            self._add_log("생산 재개", f"번호[{req_no}] Hold -> 생산중 변경, 예정일({new_date}) 설정")
+            self._add_log("생산 재개", f"번호[{req_no}] 중지 -> 생산중 변경, 예정일({new_date}) 설정")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 

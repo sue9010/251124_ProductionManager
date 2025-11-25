@@ -18,8 +18,8 @@ class SchedulePopup(BasePopup):
         self.current_status = str(self.first_row.get("Status", ""))
 
         title = f"생산 일정 수립 - 번호 [{req_no}]"
-        if self.current_status == "Hold":
-            title = f"생산 재개 (Hold 해제) - 번호 [{req_no}]"
+        if self.current_status == "중지":
+            title = f"생산 재개 (중지 해제) - 번호 [{req_no}]"
 
         super().__init__(parent, data_manager, refresh_callback, title=title, geometry="800x600")
         self.create_widgets()
@@ -43,7 +43,7 @@ class SchedulePopup(BasePopup):
         header_line.pack(fill="x", pady=(0, 10))
         
         title_text = f"생산 일정 수립 (번호: {self.req_no})"
-        if self.current_status == "Hold":
+        if self.current_status == "중지":
             title_text = f"생산 재개 (번호: {self.req_no})"
             
         ctk.CTkLabel(header_line, text=title_text, font=FONTS["title"]).pack(side="left")
@@ -54,14 +54,14 @@ class SchedulePopup(BasePopup):
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
-        # 2. 그 왼쪽: Hold / 재개 버튼
+        # 2. 그 왼쪽: 중지 / 재개 버튼
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
         # 3. 그 왼쪽: 생산대기 / 생산재개 버튼
         if self.current_status == "대기":
             ctk.CTkButton(header_line, text="생산 재개", width=80, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"],
                           command=self.open_resume_from_waiting_popup).pack(side="right", padx=(0, 5))
-        elif self.current_status != "Hold":
+        elif self.current_status != "중지":
             ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
                           command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
 
@@ -105,7 +105,7 @@ class SchedulePopup(BasePopup):
              self.date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
 
         btn_text = "일정 등록 (생산 시작)"
-        if self.current_status == "Hold":
+        if self.current_status == "중지":
             btn_text = "일정 재등록 및 생산 시작"
             
         ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]).pack(side="right", padx=(5,0))

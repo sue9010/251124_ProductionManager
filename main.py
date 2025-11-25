@@ -34,7 +34,7 @@ class COXProductionManager(ctk.CTk):
             "생산 접수": True,
             "대기": True,      # New (기본적으로 보이도록 설정)
             "생산중": True,
-            "Hold": False,
+            "중지": False,
             "완료": False
         }
 
@@ -92,8 +92,8 @@ class COXProductionManager(ctk.CTk):
         # 5. [필터 버튼 그룹]
         # pack(side="right")를 사용하므로, 화면상 [왼쪽 -> 오른쪽] 순서로 보이게 하려면
         # 코드에서는 [오른쪽 -> 왼쪽] 순서로 pack 해야 함.
-        # 원하는 순서: [생산 접수] [대기] [생산중] [Hold] [완료]
-        # 코드 작성 순서: 완료 -> Hold -> 생산중 -> 대기 -> 생산 접수
+        # 원하는 순서: [생산 접수] [대기] [생산중] [중지] [완료]
+        # 코드 작성 순서: 완료 -> 중지 -> 생산중 -> 대기 -> 생산 접수
         
         ctk.CTkFrame(top_frame, width=2, height=30, fg_color=COLORS["border"]).pack(side="right", padx=10)
         self.filter_buttons = {}
@@ -103,10 +103,10 @@ class COXProductionManager(ctk.CTk):
         self.btn_complete.pack(side="right", padx=5)
         self.filter_buttons["완료"] = self.btn_complete
 
-        # (4) Hold 버튼
-        self.btn_hold = ctk.CTkButton(top_frame, text="Hold", command=lambda: self.toggle_filter("Hold"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
+        # (4) 중지 버튼
+        self.btn_hold = ctk.CTkButton(top_frame, text="중지", command=lambda: self.toggle_filter("중지"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
         self.btn_hold.pack(side="right", padx=5)
-        self.filter_buttons["Hold"] = self.btn_hold
+        self.filter_buttons["중지"] = self.btn_hold
 
         # (3) 생산중 버튼
         self.btn_prod = ctk.CTkButton(top_frame, text="생산중", command=lambda: self.toggle_filter("생산중"), width=80, height=40, font=ctk.CTkFont(size=14, weight="bold"))
@@ -197,11 +197,11 @@ class COXProductionManager(ctk.CTk):
             is_active = self.filter_states.get(status, False)
             if is_active:
                 # 상태별 활성 색상 지정
-                if status == "Hold":
+                if status == "중지":
                     btn.configure(fg_color=COLORS["danger"], text_color=text_color_active, border_width=0)
                 elif status == "대기":
-                    # 대기 상태는 파란색 계열
-                    btn.configure(fg_color=COLORS["primary"], text_color=text_color_active, border_width=0)
+                    # 대기 상태는 붉은색 계열
+                    btn.configure(fg_color=COLORS["danger"], text_color=text_color_active, border_width=0)
                 else:
                     btn.configure(fg_color=active_color, text_color=text_color_active, border_width=0)
             else:
@@ -211,7 +211,7 @@ class COXProductionManager(ctk.CTk):
         self.filter_states["생산 접수"] = True
         self.filter_states["대기"] = False
         self.filter_states["생산중"] = True
-        self.filter_states["Hold"] = False
+        self.filter_states["중지"] = False
         self.filter_states["완료"] = False
         self.update_filter_buttons_visuals()
 
@@ -280,7 +280,7 @@ class COXProductionManager(ctk.CTk):
         elif status == "대기":
             # [New] 대기 상태일 때도 일정 수립(수정) 팝업 오픈
             self.pm.open_schedule_popup(req_no)
-        elif status == "Hold":
+        elif status == "중지":
             self.pm.open_schedule_popup(req_no)
         elif status == "생산중":
             self.pm.open_complete_popup(req_no)

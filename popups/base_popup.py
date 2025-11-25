@@ -54,10 +54,10 @@ class BasePopup(ctk.CTkToplevel):
 
     def _add_hold_button(self, parent_frame, req_no, current_status):
         """
-        헤더 영역에 Hold 또는 생산재개 버튼을 추가합니다.
+        헤더 영역에 중지 또는 생산재개 버튼을 추가합니다.
         pack(side='right')를 사용하므로, PDF 버튼보다 먼저 호출해야 PDF 버튼 왼쪽에 위치합니다.
         """
-        if current_status == "Hold":
+        if current_status == "중지":
             def resume_production():
                 # 날짜를 입력받는 팝업을 새로 연다
                 self._open_resume_production_popup(req_no)
@@ -67,7 +67,7 @@ class BasePopup(ctk.CTkToplevel):
         else:
         # elif current_status != "대기":
             def set_hold():
-                if messagebox.askyesno("Hold 설정", f"번호 [{req_no}]를 Hold 상태로 변경하시겠습니까?", parent=self):
+                if messagebox.askyesno("중지 설정", f"번호 [{req_no}]를 중지 상태로 변경하시겠습니까?", parent=self):
                     success, msg = self.dm.update_status_to_hold(req_no)
                     if success:
                         self.refresh_callback()
@@ -75,7 +75,7 @@ class BasePopup(ctk.CTkToplevel):
                     else:
                         messagebox.showerror("실패", msg, parent=self)
 
-            ctk.CTkButton(parent_frame, text="Hold", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
+            ctk.CTkButton(parent_frame, text="중지", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
                           command=set_hold).pack(side="right", padx=(0, 5))
 
     def _add_grid_item(self, parent, label, value, r, c):

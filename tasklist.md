@@ -87,6 +87,43 @@ FONTS = {
 
 ---
 
+#### 0.1.4 "Hold" 단어를 "중지"로 변경
+
+**목표**: 프로그램 전반에 걸쳐 사용되는 'Hold'라는 단어를 명시적인 '중지'로 변경하여 의미를 명확히 합니다.
+
+**적용 파일 및 변경 내용**:
+
+*   `styles.py`: 주석 내 `(Hold, 삭제)` → `(중지, 삭제)`
+*   `main.py`:
+    *   `filter_states` 딕셔너리 키 `Hold` → `중지`
+    *   버튼 텍스트 `text="Hold"` → `text="중지"`
+    *   `update_filter_buttons_visuals` 함수 내 `if status == "Hold"` → `if status == "중지"`
+    *   `reset_default_filters` 함수 내 `self.filter_states["Hold"] = False` → `self.filter_states["중지"] = False`
+    *   `on_double_click` 함수 내 `elif status == "Hold"` → `elif status == "중지"`
+*   `data_manager.py`:
+    *   `update_status_to_hold` 함수 내 `Status` 컬럼 값 `Hold` → `중지`
+    *   로그 메시지 `Hold 설정` → `중지 설정`, `Hold -> 생산중` → `중지 -> 생산중`
+*   `calendar_view.py`:
+    *   `sidebar_frame` 라벨 텍스트 `🛑 Hold 목록` → `🛑 중지 목록`
+    *   `update_sidebar` 함수 내 `status_series == 'Hold'` → `status_series == '중지'`
+    *   `update_calendar` 함수 내 `~status_series.isin(['Hold', '대기', '완료'])` → `~status_series.isin(['중지', '대기', '완료'])`
+    *   `stop_drag` 함수 내 `is_hold_list` 관련 메시지 `Hold 이동 실패` → `중지 이동 실패`
+*   `popups/base_popup.py`:
+    *   주석 내 `Hold 또는 생산재개` → `중지 또는 생산재개`
+    *   `current_status == "Hold"` → `current_status == "중지"`
+    *   `messagebox.askyesno("Hold 설정"` → `messagebox.askyesno("중지 설정"`
+    *   버튼 텍스트 `text="Hold"` → `text="중지"`
+*   `popups/schedule_popup.py`:
+    *   `current_status == "Hold"` → `current_status == "중지"`
+    *   `title` 설정 시 `Hold 해제` → `중지 해제`
+    *   `title_text` 설정 시 `생산 재개 (Hold 해제)` → `생산 재개 (중지 해제)`
+    *   `elif self.current_status != "Hold"` → `elif self.current_status != "중지"`
+*   `popups/complete_popup.py`: 주석 내 `Hold 버튼` → `중지 버튼`
+*   `popups/view_popup.py`: 주석 내 `Hold 버튼` → `중지 버튼`
+
+---
+
+
 #### 0.1.3 `calendar_view.py` 적용
 
 **Import 추가**

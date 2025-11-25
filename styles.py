@@ -2,7 +2,7 @@
 COLORS = {
     "primary": "#3B8ED0",        # 메인 파랑 (생산접수, 활성 버튼)
     "primary_hover": "#36719F",  # 메인 파랑 호버
-    "danger": "#E04F5F",         # 위험/강조 빨강 (Hold, 삭제)
+    "danger": "#E04F5F",         # 위험/강조 빨강 (중지, 삭제)
     "danger_hover": "#D32F2F",   # 빨강 호버
     "success": "#2CC985",        # 성공/완료 초록 (완료, 테두리)
     "warning": "#D35400",        # 경고 주황 (대기)

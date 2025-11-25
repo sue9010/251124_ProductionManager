@@ -36,7 +36,7 @@ class ViewPopup(BasePopup):
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
-        # 2. Hold 버튼 (완료 상태에서도 Hold 가능하도록)
+        # 2. 중지 버튼 (완료 상태에서도 중지 가능하도록)
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
         grid_frame = ctk.CTkFrame(header_frame, fg_color=COLORS["bg_dark"])

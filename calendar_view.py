@@ -82,7 +82,7 @@ class CalendarView(ctk.CTkToplevel):
         self.sidebar_frame.grid(row=0, column=1, sticky="nsew")
         self.sidebar_frame.grid_propagate(False)
 
-        ctk.CTkLabel(self.sidebar_frame, text="🛑 Hold 목록", font=FONTS["header"], text_color=COLORS["danger"]).pack(pady=(15, 5), padx=10, anchor="w")
+        ctk.CTkLabel(self.sidebar_frame, text="🛑 중지 목록", font=FONTS["header"], text_color=COLORS["danger"]).pack(pady=(15, 5), padx=10, anchor="w")
         
         # [수정됨] padx=0 -> padx=5 (목록 상자 좌우에 5px 여백을 주어 답답함 해소)
         self.hold_scroll = ctk.CTkScrollableFrame(self.sidebar_frame, height=300, fg_color=COLORS["bg_medium"], corner_radius=0)
@@ -113,7 +113,7 @@ class CalendarView(ctk.CTkToplevel):
 
         status_series = df['Status'].fillna('').astype(str).str.strip()
 
-        hold_df = df[status_series == 'Hold'].copy()
+        hold_df = df[status_series == '중지'].copy()
         self._fill_sidebar_list(self.hold_scroll, hold_df)
 
         waiting_df = df[status_series == '대기'].copy()
@@ -195,7 +195,7 @@ class CalendarView(ctk.CTkToplevel):
             s_date_str = start_date.strftime("%Y-%m-%d")
             e_date_str = end_date.strftime("%Y-%m-%d")
             status_series = df['Status'].fillna('').astype(str).str.strip()
-            mask = (df['출고예정일'] >= s_date_str) & (df['출고예정일'] <= e_date_str) & (~status_series.isin(['Hold', '대기', '완료']))
+            mask = (df['출고예정일'] >= s_date_str) & (df['출고예정일'] <= e_date_str) & (~status_series.isin(['중지', '대기', '완료']))
             df_filtered = df.loc[mask].copy()
             if not df_filtered.empty:
                 events = {date: group.to_dict('records') for date, group in df_filtered.groupby('출고예정일')}
@@ -321,11 +321,11 @@ class CalendarView(ctk.CTkToplevel):
             
             # Case 2: Drag from Calendar
             else:
-                # 2a: Drop on Hold List
+                # 2a: Drop on 중지 List
                 if is_hold_list and req_no:
                     success, msg = self.dm.update_status_to_hold(req_no)
                     if success: self.update_view()
-                    else: messagebox.showerror("Hold 이동 실패", msg, parent=self)
+                    else: messagebox.showerror("중지 이동 실패", msg, parent=self)
                 
                 # 2b: Drop on Waiting List
                 elif is_waiting_list and req_no:
