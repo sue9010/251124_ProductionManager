@@ -172,14 +172,7 @@ class CalendarView(ctk.CTkFrame):
             item_label.pack(fill="x", padx=(10, 0), pady=1)
 
             # 이벤트 바인딩 (드래그 앤 드롭 & 더블클릭)
-            item_label.bind("<Double-1>", lambda e, r=req_no: self.pm.open_schedule_popup(r))
-            item_label.bind("<Button-1>", lambda e, r=req_no, t=item_text, w=item_label: self.start_drag(e, r, None, t, w))
-            item_label.bind("<B1-Motion>", lambda e, r=req_no: self.do_drag(e, r))
-            item_label.bind("<ButtonRelease-1>", lambda e, r=req_no: self.stop_drag(e, r))
-            
-            # 호버 효과
-            item_label.bind("<Enter>", lambda e, w=item_label: w.configure(text_color=COLORS["text_dim"]))
-            item_label.bind("<Leave>", lambda e, w=item_label: w.configure(text_color=COLORS["text"]))
+            self._bind_item_events(item_label, req_no, None, item_text, is_header=False)
 
     # ===================================================
     # [Calendar] 달력 그리드 업데이트 로직
@@ -252,37 +245,71 @@ class CalendarView(ctk.CTkFrame):
             if date_str in events:
                 event_scroll_frame = ctk.CTkScrollableFrame(cell_frame, fg_color="transparent")
                 event_scroll_frame.grid(row=1, column=0, sticky='nsew', padx=1, pady=(0, 2))
-                # 공간 확보를 위해 스크롤바 숨김
                 event_scroll_frame._scrollbar.grid_forget() 
                 
-                day_events = sorted(events[date_str], key=lambda x: str(x['업체명']))
+                day_records = events[date_str]
                 
-                for event in day_events:
-                    req_no = event.get("번호")
-                    origin_date = event.get("출고예정일")
-                    comp_name = str(event['업체명'])
-                    model_name = str(event['모델명'])
-                    qty = event['수량']
-
-                    # 카드 내용 (짧게)
-                    item_text = f"• {comp_name[:5]}.. {model_name}"
+                # [수정] 요청 번호(req_no)로 그룹화
+                grouped_events = {}
+                for rec in day_records:
+                    r_no = rec.get("번호")
+                    if r_no not in grouped_events:
+                        grouped_events[r_no] = []
+                    grouped_events[r_no].append(rec)
+                
+                # 업체명 기준으로 정렬
+                sorted_req_nos = sorted(grouped_events.keys(), key=lambda r: str(grouped_events[r][0]['업체명']))
+                
+                for r_no in sorted_req_nos:
+                    group = grouped_events[r_no]
+                    first_item = group[0]
+                    comp_name = str(first_item['업체명'])
+                    origin_date = first_item.get("출고예정일")
                     
-                    item_label = ctk.CTkLabel(
-                        event_scroll_frame, text=item_text, 
-                        font=("Malgun Gothic", 10), anchor="w", height=16,
-                        text_color=COLORS["text"], fg_color="transparent"
+                    # 1. 헤더: [업체명] (번호는 툴팁이나 드래그 시 표시)
+                    header_text = f"• [{comp_name}]"
+                    
+                    header_label = ctk.CTkLabel(
+                        event_scroll_frame, text=header_text, 
+                        font=("Malgun Gothic", 10, "bold"), anchor="w", height=14,
+                        text_color=COLORS["primary"], fg_color="transparent"
                     )
-                    item_label.pack(fill="x", pady=0, padx=1)
+                    header_label.pack(fill="x", pady=(2, 0), padx=1)
                     
-                    # 이벤트 바인딩
-                    item_label.bind("<Button-1>", lambda e, r=req_no, d=origin_date, t=item_text, w=item_label: self.start_drag(e, r, d, t, w))
-                    item_label.bind("<B1-Motion>", lambda e, r=req_no: self.do_drag(e, r))
-                    item_label.bind("<ButtonRelease-1>", lambda e, r=req_no: self.stop_drag(e, r))
+                    # 헤더 이벤트 바인딩
+                    drag_text_header = f"[{r_no}] {comp_name} ({len(group)} items)"
+                    self._bind_item_events(header_label, r_no, origin_date, drag_text_header, is_header=True)
                     
-                    # 클릭 시 (생산중 -> 완료 팝업 등)
-                    item_label.bind("<Double-1>", lambda e, r=req_no: self.pm.open_complete_popup(r))
-                    item_label.bind("<Enter>", lambda e, w=item_label: w.configure(text_color=COLORS["primary"]))
-                    item_label.bind("<Leave>", lambda e, w=item_label: w.configure(text_color=COLORS["text"]))
+                    # 2. 아이템 목록: - 모델명 (수량)
+                    for item in group:
+                        model_name = str(item['모델명'])
+                        qty = item['수량']
+                        item_text = f"   - {model_name} ({qty})"
+                        
+                        item_label = ctk.CTkLabel(
+                            event_scroll_frame, text=item_text, 
+                            font=("Malgun Gothic", 9), anchor="w", height=12,
+                            text_color=COLORS["text"], fg_color="transparent"
+                        )
+                        item_label.pack(fill="x", pady=0, padx=1)
+                        
+                        # 아이템 이벤트 바인딩
+                        drag_text_item = f"[{r_no}] {comp_name} - {model_name}"
+                        self._bind_item_events(item_label, r_no, origin_date, drag_text_item, is_header=False)
+
+    def _bind_item_events(self, widget, req_no, origin_date, drag_text, is_header):
+        """이벤트 바인딩 헬퍼 함수"""
+        widget.bind("<Button-1>", lambda e, r=req_no, d=origin_date, t=drag_text, w=widget: self.start_drag(e, r, d, t, w))
+        widget.bind("<B1-Motion>", lambda e, r=req_no: self.do_drag(e, r))
+        widget.bind("<ButtonRelease-1>", lambda e, r=req_no: self.stop_drag(e, r))
+        widget.bind("<Double-1>", lambda e, r=req_no: self.pm.open_complete_popup(r))
+        
+        # 호버 효과 설정
+        default_color = COLORS["primary"] if is_header else COLORS["text"]
+        hover_color = COLORS["primary_hover"] if is_header else COLORS["text_dim"]
+        
+        widget.bind("<Enter>", lambda e, w=widget, c=hover_color: w.configure(text_color=c))
+        widget.bind("<Leave>", lambda e, w=widget, c=default_color: w.configure(text_color=c))
 
     # ===================================================
     # [Drag & Drop] 드래그 앤 드롭 로직

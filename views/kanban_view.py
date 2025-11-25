@@ -124,8 +124,10 @@ class KanbanView(ctk.CTkFrame):
                 if "번호" in target_df.columns:
                     target_df = target_df.sort_values(by="번호", ascending=False)
             
-            # 뱃지 업데이트
-            count = len(target_df)
+            # 뱃지 업데이트: 단순 행 개수가 아니라 '번호' 기준 그룹 개수여야 더 정확하지만, 
+            # 여기서는 카드 개수(그룹 개수)로 표시하겠습니다.
+            unique_groups = target_df['번호'].unique() if "번호" in target_df.columns else []
+            count = len(unique_groups)
             self.column_frames[status]["badge"].configure(text=str(count))
 
             # 카드 생성
@@ -134,45 +136,74 @@ class KanbanView(ctk.CTkFrame):
     def create_cards(self, status, df):
         parent = self.column_frames[status]["frame"]
         
-        for _, row in df.iterrows():
-            req_no = row['번호']
-            comp = str(row['업체명'])
-            model = str(row['모델명'])
-            qty = str(row['수량'])
-            date = str(row['출고예정일']) if pd.notna(row['출고예정일']) else "-"
-            if status == "생산 접수": date = str(row['출고요청일']) # 접수 단계에선 요청일 표시
+        if df.empty: return
 
-            # 카드 프레임
+        # [수정] 번호(Request No) 기준으로 그룹화하여 카드 생성
+        # df는 이미 번호 역순으로 정렬되어 있음
+        unique_req_nos = df['번호'].unique()
+
+        for req_no in unique_req_nos:
+            # 해당 번호의 모든 항목(제품들) 추출
+            group_df = df[df['번호'] == req_no]
+            if group_df.empty: continue
+
+            # 공통 정보 추출 (첫 번째 행 기준)
+            first_row = group_df.iloc[0]
+            comp = str(first_row['업체명'])
+            
+            # 날짜 표시
+            date = str(first_row['출고예정일']) if pd.notna(first_row['출고예정일']) else "-"
+            if status == "생산 접수": date = str(first_row['출고요청일']) # 접수 단계에선 요청일 표시
+
+            # 카드 프레임 생성
             card = ctk.CTkFrame(parent, fg_color=COLORS["bg_medium"], corner_radius=6, border_width=1, border_color=COLORS["border"])
             card.pack(fill="x", pady=4, padx=2)
             
-            # 내용
-            # 상단: 업체명 | 수량
+            # --- 상단: 업체명 | 총 품목 수 ---
             top_row = ctk.CTkFrame(card, fg_color="transparent", height=20)
             top_row.pack(fill="x", padx=8, pady=(8, 2))
             
             ctk.CTkLabel(top_row, text=comp, font=("Malgun Gothic", 11, "bold"), text_color=COLORS["primary"]).pack(side="left")
-            ctk.CTkLabel(top_row, text=f"{qty}EA", font=("Malgun Gothic", 11), text_color=COLORS["text_dim"]).pack(side="right")
             
-            # 중단: 모델명
+            # 품목 수 표시 (예: 3 Models)
+            item_count = len(group_df)
+            count_text = f"{item_count}종" if item_count > 1 else "1종"
+            ctk.CTkLabel(top_row, text=count_text, font=("Malgun Gothic", 10), text_color=COLORS["text_dim"]).pack(side="right")
+            
+            # --- 중단: 제품 목록 (여러 개일 경우 모두 표시) ---
             mid_row = ctk.CTkFrame(card, fg_color="transparent")
             mid_row.pack(fill="x", padx=8, pady=2)
-            ctk.CTkLabel(mid_row, text=model, font=("Malgun Gothic", 12), text_color=COLORS["text"], wraplength=180, justify="left").pack(anchor="w")
             
-            # 하단: 번호 | 날짜
+            for _, row in group_df.iterrows():
+                model = str(row['모델명'])
+                qty = str(row['수량'])
+                item_text = f"• {model} ({qty})"
+                
+                ctk.CTkLabel(
+                    mid_row, text=item_text, 
+                    font=("Malgun Gothic", 11), text_color=COLORS["text"], 
+                    wraplength=180, justify="left", anchor="w"
+                ).pack(fill="x", anchor="w")
+            
+            # --- 하단: 번호 | 날짜 ---
             bot_row = ctk.CTkFrame(card, fg_color="transparent")
-            bot_row.pack(fill="x", padx=8, pady=(2, 8))
+            bot_row.pack(fill="x", padx=8, pady=(5, 8))
+            
             ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=("Arial", 10), text_color=COLORS["text_dim"]).pack(side="left")
             
             date_color = COLORS["text_dim"]
             if status == "생산중": date_color = COLORS["success"]
             ctk.CTkLabel(bot_row, text=date, font=("Arial", 10), text_color=date_color).pack(side="right")
 
-            # 이벤트 바인딩 (DnD)
-            # 카드 전체와 내부 라벨들에 이벤트 연결
-            drag_text = f"[{req_no}] {comp} - {model}"
-            for w in [card] + card.winfo_children() + top_row.winfo_children() + mid_row.winfo_children() + bot_row.winfo_children():
-                w.bind("<Button-1>", lambda e, r=req_no, s=status, t=drag_text, w=card: self.start_drag(e, r, s, t, w))
+            # --- 이벤트 바인딩 (DnD & Double Click) ---
+            # 카드 내 모든 위젯에 이벤트 연결
+            drag_text = f"[{req_no}] {comp} ({item_count}종)"
+            
+            # 재귀적으로 자식 위젯까지 이벤트 바인딩
+            widgets_to_bind = [card, top_row, mid_row, bot_row] + top_row.winfo_children() + mid_row.winfo_children() + bot_row.winfo_children()
+            
+            for w in widgets_to_bind:
+                w.bind("<Button-1>", lambda e, r=req_no, s=status, t=drag_text, w_item=card: self.start_drag(e, r, s, t, w_item))
                 w.bind("<B1-Motion>", self.do_drag)
                 w.bind("<ButtonRelease-1>", self.stop_drag)
                 w.bind("<Double-1>", lambda e, r=req_no: self.on_card_double_click(r))
