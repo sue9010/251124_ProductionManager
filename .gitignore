@@ -25,6 +25,7 @@ tmp/
 
 # IDE / OS
 .vscode/
+.ideas/
 .idea/
 .DS_Store
 Thumbs.db
@@ -35,3 +36,4 @@ Thumbs.db
 
 # Project specific
 Production Manager.spec
+
