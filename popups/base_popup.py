@@ -12,7 +12,7 @@ class BasePopup(ctk.CTkToplevel):
         self.refresh_callback = refresh_callback
 
         self.title(title)
-        
+
         # geometry 문자열에서 너비와 높이 추출
         width, height = map(int, geometry.split('x'))
         self.center_window(width, height)
@@ -172,3 +172,58 @@ class BasePopup(ctk.CTkToplevel):
     def create_widgets(self):
         # This method should be overridden by subclasses
         raise NotImplementedError
+
+
+class StandardPopup(BasePopup):
+    def __init__(self, parent, data_manager, refresh_callback, title="Popup", geometry="800x600"):
+        super().__init__(parent, data_manager, refresh_callback, title=title, geometry=geometry)
+
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.pack(fill="x", padx=20, pady=(10, 5))
+
+        self.info_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.info_frame.pack(fill="x", padx=20, pady=(0, 10))
+
+        self.list_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.list_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+
+        self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.footer_frame.pack(fill="x", padx=20, pady=(0, 20))
+
+    def setup_header(self, title):
+        header_line = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        header_line.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(header_line, text=title, font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        return header_line
+
+    def setup_info(self, data_dict, columns=2):
+        grid_frame = ctk.CTkFrame(self.info_frame, fg_color="#2b2b2b")
+        grid_frame.pack(fill="x")
+
+        for i, (label, value) in enumerate(data_dict.items()):
+            r = i // columns
+            c = i % columns
+            self._add_grid_item(grid_frame, label, value, r, c)
+
+        return grid_frame
+
+    def setup_list(self, df, title="품목 리스트", height=250):
+        ctk.CTkLabel(self.list_frame, text=title, font=("Malgun Gothic", 14, "bold")).pack(anchor="w", pady=(0, 5))
+
+        scroll_frame = ctk.CTkScrollableFrame(self.list_frame, height=height, corner_radius=10)
+        scroll_frame.pack(fill="both", expand=True)
+        return scroll_frame
+
+    def setup_footer(self, buttons=None):
+        footer = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
+        footer.pack(fill="x")
+
+        if buttons:
+            for spec in buttons:
+                btn_options = spec.copy()
+                text = btn_options.pop("text", "")
+                command = btn_options.pop("command", None)
+                ctk.CTkButton(footer, text=text, command=command, **btn_options).pack(side="right", padx=(5, 0))
+
+        return footer

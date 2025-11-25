@@ -1,10 +1,10 @@
 # popups/complete_popup.py
 import customtkinter as ctk
 from tkinter import messagebox
-from .base_popup import BasePopup
+from .base_popup import StandardPopup
 from datetime import datetime
 
-class CompletePopup(BasePopup):
+class CompletePopup(StandardPopup):
     def __init__(self, parent, data_manager, refresh_callback, req_no):
         self.req_no = req_no
         self.target_rows = data_manager.df[data_manager.df["번호"].astype(str) == str(req_no)]
@@ -30,15 +30,7 @@ class CompletePopup(BasePopup):
             "출고예정일": self.first_row.get("출고예정일", "-") 
         }
 
-        # 상단 정보
-        info_frame = ctk.CTkFrame(self, fg_color="transparent")
-        info_frame.pack(fill="x", padx=20, pady=10)
-        
-        # 헤더 라인
-        header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
-        header_line.pack(fill="x", pady=(0, 10))
-        
-        ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {self.req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        header_line = self.setup_header(f"생산 완료 처리 (번호: {self.req_no})")
 
         # [버튼 배치: 오른쪽부터 순서대로]
         # 1. PDF 버튼
@@ -49,12 +41,7 @@ class CompletePopup(BasePopup):
         # 2. Hold 버튼
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
-        grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
-        grid_frame.pack(fill="x")
-
-        # --- 그리드 배치 ---
-        self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
-        self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
+        grid_frame = self.setup_info({"업체명": common_info["업체명"], "출고요청일": common_info["출고요청일"]}, columns=2)
 
         ctk.CTkLabel(grid_frame, text="출고예정일", font=("Malgun Gothic", 12, "bold"), text_color="#3B8ED0").grid(row=1, column=0, padx=10, pady=5, sticky="w")
         
@@ -69,10 +56,7 @@ class CompletePopup(BasePopup):
         self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 2, 0)
         self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 2, 1)
 
-        # 품목 리스트
-        ctk.CTkLabel(self, text="품목별 상세 정보 입력", font=("Malgun Gothic", 14, "bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        scroll_frame = ctk.CTkScrollableFrame(self, height=300, corner_radius=10)
-        scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+        scroll_frame = self.setup_list(self.target_rows, title="품목별 상세 정보 입력", height=300)
 
         self.entry_widgets = []
 
@@ -98,9 +82,7 @@ class CompletePopup(BasePopup):
 
             self.entry_widgets.append({"index": idx, "serial_w": e_serial, "lens_w": e_lens})
 
-        # 하단 입력
-        footer = ctk.CTkFrame(self, fg_color="transparent")
-        footer.pack(fill="x", padx=20, pady=20)
+        footer = self.setup_footer()
 
         ctk.CTkLabel(footer, text="출고일:").pack(side="left", padx=(0, 5))
         self.e_date = ctk.CTkEntry(footer, width=120)

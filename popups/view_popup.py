@@ -1,9 +1,9 @@
 # popups/view_popup.py
 import customtkinter as ctk
 from tkinter import messagebox
-from .base_popup import BasePopup
+from .base_popup import StandardPopup
 
-class ViewPopup(BasePopup):
+class ViewPopup(StandardPopup):
     def __init__(self, parent, data_manager, refresh_callback, req_no):
         self.req_no = req_no
         self.target_rows = data_manager.df[data_manager.df["번호"].astype(str) == str(req_no)]
@@ -21,13 +21,7 @@ class ViewPopup(BasePopup):
     def create_widgets(self):
         file_path = self.row0.get("파일경로", "-")
 
-        header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.pack(fill="x", padx=20, pady=20)
-
-        header_line = ctk.CTkFrame(header_frame, fg_color="transparent")
-        header_line.pack(fill="x", pady=(0, 10))
-
-        ctk.CTkLabel(header_line, text=f"출고 완료 상세 정보 (번호: {self.req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        header_line = self.setup_header(f"출고 완료 상세 정보 (번호: {self.req_no})")
 
         # [버튼 배치]
         # 1. PDF 버튼
@@ -38,41 +32,23 @@ class ViewPopup(BasePopup):
         # 2. Hold 버튼 (완료 상태에서도 Hold 가능하도록)
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
-        grid_frame = ctk.CTkFrame(header_frame, fg_color="#2b2b2b")
-        grid_frame.pack(fill="x")
+        grid_frame = self.setup_info({
+            "업체명": self.row0.get("업체명", "-"),
+            "Status": self.row0.get("Status", "-"),
+            "출고요청일": self.row0.get("출고요청일", "-"),
+            "출고예정일": self.row0.get("출고예정일", "-"),
+            "출고일": self.row0.get("출고일", "-"),
+            "생산팀 메모": self.row0.get("생산팀 메모", "-"),
+            "기타요청사항": self.row0.get("기타요청사항", "-"),
+            "업체별 특이사항": self.row0.get("업체별 특이사항", "-"),
+        },
+            columns=2,
+        )
 
-        common_items = [
-            ("업체명", self.row0.get("업체명", "-")),
-            ("Status", self.row0.get("Status", "-")),
-            ("출고요청일", self.row0.get("출고요청일", "-")),
-            ("출고예정일", self.row0.get("출고예정일", "-")),
-            ("출고일", self.row0.get("출고일", "-")),
-            ("생산팀 메모", self.row0.get("생산팀 메모", "-")),
-            ("기타요청사항", self.row0.get("기타요청사항", "-")),
-            ("업체별 특이사항", self.row0.get("업체별 특이사항", "-"))
-        ]
+        for child in grid_frame.winfo_children():
+            child.grid_configure(padx=15, pady=8)
 
-        for i, (label, value) in enumerate(common_items):
-            r = i // 2
-            c = (i % 2) * 2
-            ctk.CTkLabel(
-                grid_frame, 
-                text=label, 
-                font=("Malgun Gothic", 12, "bold"), 
-                text_color="#3B8ED0"
-            ).grid(row=r, column=c, padx=15, pady=8, sticky="w")
-            
-            ctk.CTkLabel(
-                grid_frame, 
-                text=str(value), 
-                font=("Malgun Gothic", 12),
-                text_color="white"
-            ).grid(row=r, column=c+1, padx=15, pady=8, sticky="w")
-
-        ctk.CTkLabel(self, text="품목별 상세 정보", font=("Malgun Gothic", 14, "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-
-        scroll_frame = ctk.CTkScrollableFrame(self, height=350, corner_radius=10)
-        scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        scroll_frame = self.setup_list(self.target_rows, title="품목별 상세 정보", height=350)
 
         for idx, row in self.target_rows.iterrows():
             card = ctk.CTkFrame(scroll_frame, fg_color="#333333", corner_radius=6)
@@ -102,8 +78,7 @@ class ViewPopup(BasePopup):
                     corner_radius=4
                 ).pack(side="left", padx=(0, 10), ipadx=5)
 
-        footer_frame = ctk.CTkFrame(self, fg_color="transparent")
-        footer_frame.pack(pady=20)
+        footer_frame = self.setup_footer()
 
         ctk.CTkButton(footer_frame, text="닫기", command=self.destroy, fg_color="#555555", hover_color="#333333").pack(side="left", padx=5)
         ctk.CTkButton(footer_frame, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B").pack(side="left", padx=5)
