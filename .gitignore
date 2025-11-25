@@ -29,6 +29,7 @@ tmp/
 .idea/
 .DS_Store
 Thumbs.db
+.ideas/
 
 # Env / secrets
 .env
