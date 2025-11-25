@@ -3,6 +3,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 from .base_popup import BasePopup
 from datetime import datetime
+from styles import COLORS, FONTS
 
 class SchedulePopup(BasePopup):
     def __init__(self, parent, data_manager, refresh_callback, req_no):
@@ -45,12 +46,12 @@ class SchedulePopup(BasePopup):
         if self.current_status == "Hold":
             title_text = f"생산 재개 (번호: {self.req_no})"
             
-        ctk.CTkLabel(header_line, text=title_text, font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        ctk.CTkLabel(header_line, text=title_text, font=FONTS["title"]).pack(side="left")
         
         # [배치 순서 중요: Right로 Pack 할 때 먼저 한게 제일 오른쪽]
         # 1. 제일 오른쪽: PDF 보기 버튼
         if file_path and str(file_path) != "-":
-            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
+            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
         # 2. 그 왼쪽: Hold / 재개 버튼
@@ -58,14 +59,14 @@ class SchedulePopup(BasePopup):
 
         # 3. 그 왼쪽: 생산대기 / 생산재개 버튼
         if self.current_status == "대기":
-            ctk.CTkButton(header_line, text="생산 재개", width=80, fg_color="#3B8ED0", hover_color="#36719F",
+            ctk.CTkButton(header_line, text="생산 재개", width=80, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"],
                           command=self.open_resume_from_waiting_popup).pack(side="right", padx=(0, 5))
         elif self.current_status != "Hold":
-            ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
+            ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
                           command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
 
 
-        grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
+        grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
 
         # --- 그리드 배치 ---
@@ -75,23 +76,23 @@ class SchedulePopup(BasePopup):
         self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 1, 1)
 
         # 품목 리스트
-        ctk.CTkLabel(self, text="품목 리스트", font=("Malgun Gothic", 14, "bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(self, text="품목 리스트", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
         scroll_frame = ctk.CTkScrollableFrame(self, height=200, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
 
         for idx, row in self.target_rows.iterrows():
-            card = ctk.CTkFrame(scroll_frame, fg_color="#333333")
+            card = ctk.CTkFrame(scroll_frame, fg_color=COLORS["bg_medium"])
             card.pack(fill="x", pady=5, padx=5)
             left = ctk.CTkFrame(card, fg_color="transparent")
             left.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-            ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=("Malgun Gothic", 14, "bold")).pack(anchor="w")
-            ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=("Malgun Gothic", 12), text_color="yellow").pack(anchor="w")
+            ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=FONTS["main_bold"]).pack(anchor="w")
+            ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=FONTS["main"], text_color=COLORS["warning"]).pack(anchor="w")
 
         # 하단 입력
         footer = ctk.CTkFrame(self, fg_color="transparent")
         footer.pack(fill="x", padx=20, pady=20)
         
-        ctk.CTkLabel(footer, text="출고예정일:", font=("Malgun Gothic", 14, "bold")).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(footer, text="출고예정일:", font=FONTS["header"]).pack(side="left", padx=(0, 10))
         
         self.date_entry = ctk.CTkEntry(footer, width=200, placeholder_text="yyyy-mm-dd")
         self.date_entry.pack(side="left", padx=(0, 20))
@@ -107,10 +108,10 @@ class SchedulePopup(BasePopup):
         if self.current_status == "Hold":
             btn_text = "일정 재등록 및 생산 시작"
             
-        ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color="#3B8ED0", hover_color="#36719F").pack(side="right", padx=(5,0))
+        ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]).pack(side="right", padx=(5,0))
         
         # 삭제 버튼 추가
-        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B").pack(side="right", padx=(0,0))
+        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"]).pack(side="right", padx=(0,0))
         
 
     def delete_entry(self):
@@ -131,7 +132,7 @@ class SchedulePopup(BasePopup):
         reason_window.geometry("400x200")
         reason_window.attributes("-topmost", True)
         
-        ctk.CTkLabel(reason_window, text="대기 사유를 입력하세요.", font=("Malgun Gothic", 14, "bold")).pack(pady=(20, 10))
+        ctk.CTkLabel(reason_window, text="대기 사유를 입력하세요.", font=FONTS["header"]).pack(pady=(20, 10))
         
         e_reason = ctk.CTkEntry(reason_window, width=300)
         e_reason.pack(pady=5)
@@ -156,8 +157,8 @@ class SchedulePopup(BasePopup):
         btn_frame = ctk.CTkFrame(reason_window, fg_color="transparent")
         btn_frame.pack(pady=20)
         
-        ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color="#3B8ED0", hover_color="#36719F", width=80).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color="#555555", hover_color="#333333", width=80).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=80).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="left", padx=5)
 
     def open_resume_from_waiting_popup(self):
         win = ctk.CTkToplevel(self)
@@ -165,7 +166,7 @@ class SchedulePopup(BasePopup):
         win.geometry("400x200")
         win.attributes("-topmost", True)
         
-        ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=("Malgun Gothic", 14, "bold")).pack(pady=(20, 10))
+        ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=FONTS["header"]).pack(pady=(20, 10))
         
         e_date = ctk.CTkEntry(win, width=300)
         e_date.pack(pady=5)
@@ -190,8 +191,8 @@ class SchedulePopup(BasePopup):
         btn_frame = ctk.CTkFrame(win, fg_color="transparent")
         btn_frame.pack(pady=20)
         
-        ctk.CTkButton(btn_frame, text="확인", command=submit_date, fg_color="#3B8ED0", hover_color="#36719F", width=80).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="취소", command=win.destroy, fg_color="#555555", hover_color="#333333", width=80).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="확인", command=submit_date, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=80).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="취소", command=win.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="left", padx=5)
 
     def confirm(self):
         date_str = self.date_entry.get()

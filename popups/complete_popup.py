@@ -3,6 +3,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 from .base_popup import BasePopup
 from datetime import datetime
+from styles import COLORS, FONTS
 
 class CompletePopup(BasePopup):
     def __init__(self, parent, data_manager, refresh_callback, req_no):
@@ -38,52 +39,52 @@ class CompletePopup(BasePopup):
         header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
         
-        ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {self.req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {self.req_no})", font=FONTS["title"]).pack(side="left")
 
         # [버튼 배치: 오른쪽부터 순서대로]
         # 1. PDF 버튼
         if file_path and str(file_path) != "-":
-            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
+            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
 
         # 2. Hold 버튼
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
-        grid_frame = ctk.CTkFrame(info_frame, fg_color="#2b2b2b")
+        grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
 
         # --- 그리드 배치 ---
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
         self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
 
-        ctk.CTkLabel(grid_frame, text="출고예정일", font=("Malgun Gothic", 12, "bold"), text_color="#3B8ED0").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(grid_frame, text="출고예정일", font=FONTS["main_bold"], text_color=COLORS["primary"]).grid(row=1, column=0, padx=10, pady=5, sticky="w")
         
         expected_date_frame = ctk.CTkFrame(grid_frame, fg_color="transparent")
         expected_date_frame.grid(row=1, column=1, padx=10, pady=5, sticky="w")
         
-        self.lbl_expected_date = ctk.CTkLabel(expected_date_frame, text=str(common_info["출고예정일"]), font=("Malgun Gothic", 12), text_color="white")
+        self.lbl_expected_date = ctk.CTkLabel(expected_date_frame, text=str(common_info["출고예정일"]), font=FONTS["main"], text_color=COLORS["text"])
         self.lbl_expected_date.pack(side="left")
 
-        ctk.CTkButton(expected_date_frame, text="변경", width=50, height=24, font=("Malgun Gothic", 11), fg_color="#555555", hover_color="#333333", command=self.open_change_date_popup).pack(side="left", padx=10)
+        ctk.CTkButton(expected_date_frame, text="변경", width=50, height=24, font=FONTS["small"], fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], command=self.open_change_date_popup).pack(side="left", padx=10)
 
         self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 2, 0)
         self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 2, 1)
 
         # 품목 리스트
-        ctk.CTkLabel(self, text="품목별 상세 정보 입력", font=("Malgun Gothic", 14, "bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(self, text="품목별 상세 정보 입력", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
         scroll_frame = ctk.CTkScrollableFrame(self, height=300, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
 
         self.entry_widgets = []
 
         for idx, row in self.target_rows.iterrows():
-            card = ctk.CTkFrame(scroll_frame, fg_color="#333333")
+            card = ctk.CTkFrame(scroll_frame, fg_color=COLORS["bg_medium"])
             card.pack(fill="x", pady=5, padx=5)
 
             left = ctk.CTkFrame(card, fg_color="transparent")
             left.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-            ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=("Malgun Gothic", 14, "bold")).pack(anchor="w")
-            ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=("Malgun Gothic", 12), text_color="yellow").pack(anchor="w")
+            ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=FONTS["main_bold"]).pack(anchor="w")
+            ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=FONTS["main"], text_color=COLORS["warning"]).pack(anchor="w")
 
             right = ctk.CTkFrame(card, fg_color="transparent")
             right.pack(side="right", padx=10, pady=10)
@@ -111,10 +112,10 @@ class CompletePopup(BasePopup):
         self.e_memo = ctk.CTkEntry(footer, width=250)
         self.e_memo.pack(side="left", fill="x", expand=True, padx=(0, 20))
 
-        ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color="#3B8ED0", hover_color="#36719F", width=150).pack(side="right")
+        ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=150).pack(side="right")
         
         # 삭제 버튼 추가
-        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B", width=150).pack(side="right", padx=(0, 5))
+        ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], width=150).pack(side="right", padx=(0, 5))
 
     def delete_entry(self):
         """요청 번호에 해당하는 데이터를 삭제합니다."""

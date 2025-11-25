@@ -2,6 +2,7 @@
 import customtkinter as ctk
 from tkinter import messagebox
 from .base_popup import BasePopup
+from styles import COLORS, FONTS
 
 class ViewPopup(BasePopup):
     def __init__(self, parent, data_manager, refresh_callback, req_no):
@@ -27,18 +28,18 @@ class ViewPopup(BasePopup):
         header_line = ctk.CTkFrame(header_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header_line, text=f"출고 완료 상세 정보 (번호: {self.req_no})", font=("Malgun Gothic", 20, "bold")).pack(side="left")
+        ctk.CTkLabel(header_line, text=f"출고 완료 상세 정보 (번호: {self.req_no})", font=FONTS["title"]).pack(side="left")
 
         # [버튼 배치]
         # 1. PDF 버튼
         if file_path and str(file_path) != "-":
-            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color="#E04F5F", hover_color="#C0392B",
+            ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
         # 2. Hold 버튼 (완료 상태에서도 Hold 가능하도록)
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
-        grid_frame = ctk.CTkFrame(header_frame, fg_color="#2b2b2b")
+        grid_frame = ctk.CTkFrame(header_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
 
         common_items = [
@@ -58,31 +59,31 @@ class ViewPopup(BasePopup):
             ctk.CTkLabel(
                 grid_frame, 
                 text=label, 
-                font=("Malgun Gothic", 12, "bold"), 
-                text_color="#3B8ED0"
+                font=FONTS["main_bold"], 
+                text_color=COLORS["primary"]
             ).grid(row=r, column=c, padx=15, pady=8, sticky="w")
             
             ctk.CTkLabel(
                 grid_frame, 
                 text=str(value), 
-                font=("Malgun Gothic", 12),
-                text_color="white"
+                font=FONTS["main"],
+                text_color=COLORS["text"]
             ).grid(row=r, column=c+1, padx=15, pady=8, sticky="w")
 
-        ctk.CTkLabel(self, text="품목별 상세 정보", font=("Malgun Gothic", 14, "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(self, text="품목별 상세 정보", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(10, 5))
 
         scroll_frame = ctk.CTkScrollableFrame(self, height=350, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         for idx, row in self.target_rows.iterrows():
-            card = ctk.CTkFrame(scroll_frame, fg_color="#333333", corner_radius=6)
+            card = ctk.CTkFrame(scroll_frame, fg_color=COLORS["bg_medium"], corner_radius=6)
             card.pack(fill="x", pady=5, padx=5)
 
             content = ctk.CTkFrame(card, fg_color="transparent")
             content.pack(fill="both", expand=True, padx=15, pady=10)
 
             model_info = f"[{row.get('모델명')}] {row.get('상세')}"
-            ctk.CTkLabel(content, text=model_info, font=("Malgun Gothic", 14, "bold")).pack(anchor="w")
+            ctk.CTkLabel(content, text=model_info, font=FONTS["main_bold"]).pack(anchor="w")
 
             details_frame = ctk.CTkFrame(content, fg_color="transparent")
             details_frame.pack(fill="x", pady=(5, 0))
@@ -97,16 +98,16 @@ class ViewPopup(BasePopup):
                 ctk.CTkLabel(
                     details_frame, 
                     text=info, 
-                    font=("Malgun Gothic", 12), 
-                    fg_color="#444444", 
+                    font=FONTS["main"], 
+                    fg_color=COLORS["border"], 
                     corner_radius=4
                 ).pack(side="left", padx=(0, 10), ipadx=5)
 
         footer_frame = ctk.CTkFrame(self, fg_color="transparent")
         footer_frame.pack(pady=20)
 
-        ctk.CTkButton(footer_frame, text="닫기", command=self.destroy, fg_color="#555555", hover_color="#333333").pack(side="left", padx=5)
-        ctk.CTkButton(footer_frame, text="요청 삭제", command=self.delete_entry, fg_color="#E04F5F", hover_color="#C0392B").pack(side="left", padx=5)
+        ctk.CTkButton(footer_frame, text="닫기", command=self.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"]).pack(side="left", padx=5)
+        ctk.CTkButton(footer_frame, text="요청 삭제", command=self.delete_entry, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"]).pack(side="left", padx=5)
 
     def delete_entry(self):
         """요청 번호에 해당하는 데이터를 삭제합니다."""

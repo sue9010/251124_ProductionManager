@@ -3,6 +3,7 @@ import os
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from datetime import datetime
+from styles import COLORS, FONTS
 
 
 class BasePopup(ctk.CTkToplevel):
@@ -61,7 +62,7 @@ class BasePopup(ctk.CTkToplevel):
                 # 날짜를 입력받는 팝업을 새로 연다
                 self._open_resume_production_popup(req_no)
                     
-            ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color="#3B8ED0", hover_color="#36719F",
+            ctk.CTkButton(parent_frame, text="생산 재개", width=80, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"],
                           command=resume_production).pack(side="right", padx=(0, 5))
         else:
         # elif current_status != "대기":
@@ -74,14 +75,14 @@ class BasePopup(ctk.CTkToplevel):
                     else:
                         messagebox.showerror("실패", msg, parent=self)
 
-            ctk.CTkButton(parent_frame, text="Hold", width=80, fg_color="#E04F5F", hover_color="#C0392B", 
+            ctk.CTkButton(parent_frame, text="Hold", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
                           command=set_hold).pack(side="right", padx=(0, 5))
 
     def _add_grid_item(self, parent, label, value, r, c):
         """그리드에 라벨과 값을 추가하는 헬퍼 메서드"""
         real_c = c * 2
-        ctk.CTkLabel(parent, text=label, font=("Malgun Gothic", 12, "bold"), text_color="#3B8ED0").grid(row=r, column=real_c, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(parent, text=str(value), font=("Malgun Gothic", 12), text_color="white").grid(row=r, column=real_c+1, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(parent, text=label, font=FONTS["main_bold"], text_color=COLORS["primary"]).grid(row=r, column=real_c, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(parent, text=str(value), font=FONTS["main"], text_color=COLORS["text"]).grid(row=r, column=real_c+1, padx=10, pady=5, sticky="w")
 
     def _open_change_date_input(self, req_no, current_date, parent=None):
         """출고예정일 변경을 위한 작은 팝업"""
@@ -105,7 +106,7 @@ class BasePopup(ctk.CTkToplevel):
         # ESC 키로 창 닫기
         win.bind("<Escape>", lambda e: win.destroy())
 
-        ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=("Malgun Gothic", 12)).pack(pady=(20, 10))
+        ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=FONTS["main"]).pack(pady=(20, 10))
         
         entry = ctk.CTkEntry(win, width=150)
         entry.pack(pady=5)
@@ -124,7 +125,7 @@ class BasePopup(ctk.CTkToplevel):
             else:
                 messagebox.showerror("실패", msg, parent=win)
             
-        ctk.CTkButton(win, text="변경 저장", command=confirm, fg_color="#3B8ED0", width=100).pack(pady=10)
+        ctk.CTkButton(win, text="변경 저장", command=confirm, fg_color=COLORS["primary"], width=100).pack(pady=10)
         win.focus_force() 
         entry.focus_set()
 
@@ -145,7 +146,7 @@ class BasePopup(ctk.CTkToplevel):
         win.attributes("-topmost", True)
         win.bind("<Escape>", lambda e: win.destroy())
         
-        ctk.CTkLabel(win, text=f"번호 [{req_no}] 생산을 재개합니다.\n새로운 출고예정일을 입력하세요.", font=("Malgun Gothic", 12)).pack(pady=(20, 10))
+        ctk.CTkLabel(win, text=f"번호 [{req_no}] 생산을 재개합니다.\n새로운 출고예정일을 입력하세요.", font=FONTS["main"]).pack(pady=(20, 10))
         
         entry = ctk.CTkEntry(win, width=150)
         entry.pack(pady=5)
@@ -165,7 +166,7 @@ class BasePopup(ctk.CTkToplevel):
             else:
                 messagebox.showerror("실패", msg, parent=win)
             
-        ctk.CTkButton(win, text="저장 및 생산 재개", command=confirm, fg_color="#3B8ED0", width=120).pack(pady=10)
+        ctk.CTkButton(win, text="저장 및 생산 재개", command=confirm, fg_color=COLORS["primary"], width=120).pack(pady=10)
         win.focus_force() 
         entry.focus_set()
 
