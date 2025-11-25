@@ -7,6 +7,7 @@ from calendar_view import CalendarView
 from config import Config
 from data_manager import DataManager
 from popup_manager import PopupManager
+from styles import COLORS, FONTS
 
 
 # ==========================================
@@ -72,13 +73,13 @@ class COXProductionManager(ctk.CTk):
 
         # --- [우측 컨트롤 그룹] ---
         # 1. 설정 버튼
-        ctk.CTkButton(top_frame, text="설정", command=self.pm.open_settings, width=60, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(10, 20))
+        ctk.CTkButton(top_frame, text="설정", command=self.pm.open_settings, width=60, height=40,fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"]).pack(side="right", padx=(10, 20))
 
         # [NEW] 달력으로 보기 버튼
-        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 0))
+        ctk.CTkButton(top_frame, text="달력으로 보기", command=self.open_calendar_popup, width=110, height=40,fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"]).pack(side="right", padx=(5, 0))
 
         # 2. 검색 버튼
-        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, height=40,fg_color="#555555", hover_color="#333333").pack(side="right", padx=(5, 5))
+        ctk.CTkButton(top_frame, text="검색", command=self.refresh_ui, width=50, height=40,fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"]).pack(side="right", padx=(5, 5))
 
         # 3. 검색창
         self.search_entry = ctk.CTkEntry(top_frame, width=200, height=40, placeholder_text="번호, 업체, 모델, 시리얼...")
@@ -86,7 +87,7 @@ class COXProductionManager(ctk.CTk):
         self.search_entry.bind("<Return>", lambda e: self.refresh_ui())
 
         # 4. 데이터 읽어오기 버튼
-        ctk.CTkButton(top_frame, text="데이터 읽어오기", command=self.load_data_btn_click, font=ctk.CTkFont(size=14, weight="bold"), height=40, fg_color="#3B8ED0", hover_color="#36719F").pack(side="right", padx=10)
+        ctk.CTkButton(top_frame, text="데이터 읽어오기", command=self.load_data_btn_click, font=ctk.CTkFont(size=14, weight="bold"), height=40, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]).pack(side="right", padx=10)
 
         # 5. [필터 버튼 그룹]
         # pack(side="right")를 사용하므로, 화면상 [왼쪽 -> 오른쪽] 순서로 보이게 하려면
@@ -94,7 +95,7 @@ class COXProductionManager(ctk.CTk):
         # 원하는 순서: [생산 접수] [대기] [생산중] [Hold] [완료]
         # 코드 작성 순서: 완료 -> Hold -> 생산중 -> 대기 -> 생산 접수
         
-        ctk.CTkFrame(top_frame, width=2, height=30, fg_color="#444444").pack(side="right", padx=10)
+        ctk.CTkFrame(top_frame, width=2, height=30, fg_color=COLORS["border"]).pack(side="right", padx=10)
         self.filter_buttons = {}
 
         # (5) 완료 버튼
@@ -149,9 +150,9 @@ class COXProductionManager(ctk.CTk):
     def style_treeview(self):
         style = ttk.Style()
         style.theme_use("default")
-        style.configure("Treeview", background="#2b2b2b", foreground="white", fieldbackground="#2b2b2b", rowheight=35, font=("Malgun Gothic", 12))
-        style.configure("Treeview.Heading", background="#1f1f1f", foreground="#3B8ED0", font=("Malgun Gothic", 14, "bold"), relief="flat")
-        style.map("Treeview.Heading", background=[('active', '#333333')])
+        style.configure("Treeview", background=COLORS["bg_dark"], foreground=COLORS["text"], fieldbackground=COLORS["bg_dark"], rowheight=35, font=FONTS["main"])
+        style.configure("Treeview.Heading", background="#1f1f1f", foreground=COLORS["primary"], font=FONTS["header"], relief="flat")
+        style.map("Treeview.Heading", background=[('active', COLORS["bg_medium"])])
 
     # -----------------------------------------------------
     # Logic: Sorting
@@ -185,22 +186,22 @@ class COXProductionManager(ctk.CTk):
         self.refresh_ui()
 
     def update_filter_buttons_visuals(self):
-        active_color = "#3B8ED0" # 기본 활성 색상 (Blue)
-        text_color_active = "white"
+        active_color = COLORS["primary"] # 기본 활성 색상 (Blue)
+        text_color_active = COLORS["text"]
         
-        inactive_fg = "transparent" # 비활성 배경
-        inactive_border = "#555555" # 비활성 테두리
-        text_color_inactive = "#AAAAAA"
+        inactive_fg = COLORS["transparent"] # 비활성 배경
+        inactive_border = COLORS["border"] # 비활성 테두리
+        text_color_inactive = COLORS["text_dim"]
         
         for status, btn in self.filter_buttons.items():
             is_active = self.filter_states.get(status, False)
             if is_active:
                 # 상태별 활성 색상 지정
                 if status == "Hold":
-                    btn.configure(fg_color="#E04F5F", text_color=text_color_active, border_width=0)
+                    btn.configure(fg_color=COLORS["danger"], text_color=text_color_active, border_width=0)
                 elif status == "대기":
                     # 대기 상태는 파란색 계열
-                    btn.configure(fg_color="#3B8ED0", text_color=text_color_active, border_width=0)
+                    btn.configure(fg_color=COLORS["primary"], text_color=text_color_active, border_width=0)
                 else:
                     btn.configure(fg_color=active_color, text_color=text_color_active, border_width=0)
             else:
