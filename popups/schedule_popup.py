@@ -27,10 +27,14 @@ class SchedulePopup(BasePopup):
         elif self.current_status == "대기":
             title = f"생산 대기 관리 - 번호 [{req_no}]"
 
-        super().__init__(parent, data_manager, refresh_callback, title=title, geometry="800x650") # 높이 약간 늘림
+        # [핵심] req_no를 전달하여 사이드바 활성화
+        super().__init__(parent, data_manager, refresh_callback, title=title, geometry="800x650", req_no=req_no)
         self.create_widgets()
 
     def create_widgets(self):
+        # [수정] 모든 위젯은 self.content_frame (왼쪽 영역)에 배치해야 함
+        parent = self.content_frame
+
         file_path = self.first_row.get("파일경로", "-") 
 
         common_info = {
@@ -38,14 +42,14 @@ class SchedulePopup(BasePopup):
             "기타요청사항": self.first_row.get("기타요청사항", "-"),
             "업체별 특이사항": self.first_row.get("업체별 특이사항", "-"),
             "출고요청일": self.first_row.get("출고요청일", "-"),
-            "대기사유": self.first_row.get("대기사유", "-") # 대기사유 가져오기
+            "대기사유": self.first_row.get("대기사유", "-")
         }
 
         # 상단 정보 프레임
-        info_frame = ctk.CTkFrame(self, fg_color="transparent")
+        info_frame = ctk.CTkFrame(parent, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
 
-        # 헤더 라인 (제목 + 버튼들)
+        # 헤더 라인
         header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
         
@@ -57,44 +61,34 @@ class SchedulePopup(BasePopup):
             
         ctk.CTkLabel(header_line, text=title_text, font=FONTS["title"]).pack(side="left")
         
-        # [버튼 배치]
-        # 1. 제일 오른쪽: PDF 보기 버튼
+        # 버튼 배치
         if file_path and str(file_path) != "-":
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
-        # 2. 그 왼쪽: 중지 / 재개 버튼
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
-        # 3. 그 왼쪽: 생산대기 / 생산재개 버튼
         if self.current_status == "대기":
-            # 대기 상태일 때는 '생산 재개' 버튼이 필요 (팝업 하단에 '일정 등록'으로 통합되어 있지만, 명시적으로 상단에도 배치 가능)
-            # 여기서는 로직 단순화를 위해 상단 버튼은 생략하거나 '대기 사유 수정' 등을 넣을 수 있음.
-            # 현재 기획상 하단의 '일정 등록' 버튼이 생산 재개 역할을 하므로 상단 버튼은 생략합니다.
             pass
         elif self.current_status != "중지":
             ctk.CTkButton(header_line, text="생산 대기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
                           command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
 
-
         grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
 
-        # --- 그리드 배치 ---
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
         self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
         self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 1, 0)
         self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 1, 1)
 
-        # [수정] 대기 상태일 경우 대기 사유 표시 (강조)
         if self.current_status == "대기":
-            ctk.CTkLabel(grid_frame, text="대기 사유", font=FONTS["main_bold"], text_color=COLORS["warning"]).grid(row=2, column=0, padx=10, pady=5, sticky="w")
+            ctk.CTkLabel(grid_frame, text="⚠️ 대기 사유", font=FONTS["main_bold"], text_color=COLORS["warning"]).grid(row=2, column=0, padx=10, pady=5, sticky="w")
             ctk.CTkLabel(grid_frame, text=str(common_info["대기사유"]), font=FONTS["main_bold"], text_color=COLORS["text"]).grid(row=2, column=1, padx=10, pady=5, sticky="w")
 
-
-        # 품목 리스트
-        ctk.CTkLabel(self, text="품목 리스트", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
-        scroll_frame = ctk.CTkScrollableFrame(self, height=200, corner_radius=10)
+        # [수정 포인트] 아래 위젯들이 self가 아닌 parent(self.content_frame)에 붙어야 함
+        ctk.CTkLabel(parent, text="품목 리스트", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
+        scroll_frame = ctk.CTkScrollableFrame(parent, height=200, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
 
         for idx, row in self.target_rows.iterrows():
@@ -105,8 +99,8 @@ class SchedulePopup(BasePopup):
             ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=FONTS["main_bold"]).pack(anchor="w")
             ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=FONTS["main"], text_color=COLORS["warning"]).pack(anchor="w")
 
-        # 하단 입력
-        footer = ctk.CTkFrame(self, fg_color="transparent")
+        # 하단 입력 프레임도 parent에 붙임
+        footer = ctk.CTkFrame(parent, fg_color="transparent")
         footer.pack(fill="x", padx=20, pady=20)
         
         ctk.CTkLabel(footer, text="출고예정일:", font=FONTS["header"]).pack(side="left", padx=(0, 10))
@@ -114,7 +108,6 @@ class SchedulePopup(BasePopup):
         self.date_entry = ctk.CTkEntry(footer, width=200, placeholder_text="yyyy-mm-dd")
         self.date_entry.pack(side="left", padx=(0, 20))
         
-        # 기존 예정일이 있으면 채워넣기
         old_expected = self.first_row.get("출고예정일", "")
         if old_expected and str(old_expected) != "-" and str(old_expected) != "NaT":
              self.date_entry.insert(0, str(old_expected))
@@ -128,13 +121,10 @@ class SchedulePopup(BasePopup):
             btn_text = "대기 해제 및 생산 시작"
             
         ctk.CTkButton(footer, text=btn_text, command=self.confirm, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]).pack(side="right", padx=(5,0))
-        
-        # 삭제 버튼 추가
         ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"]).pack(side="right", padx=(0,0))
         
 
     def delete_entry(self):
-        """요청 번호에 해당하는 데이터를 삭제합니다."""
         if messagebox.askyesno("삭제 확인", f"정말로 요청 번호 [{self.req_no}]의 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", parent=self):
             success, msg = self.dm.delete_request(self.req_no)
             if success:
@@ -145,13 +135,10 @@ class SchedulePopup(BasePopup):
                 messagebox.showerror("삭제 실패", msg, parent=self)
 
     def open_waiting_reason_popup(self):
-        # 사유 입력을 위한 작은 팝업 생성
         reason_window = ctk.CTkToplevel(self)
         reason_window.title("생산 대기 설정")
-        reason_window.geometry("400x200")
-        reason_window.attributes("-topmost", True)
         
-        # 팝업 중앙 배치
+        # Center the small popup relative to screen
         width, height = 400, 200
         screen_width = reason_window.winfo_screenwidth()
         screen_height = reason_window.winfo_screenheight()
@@ -159,6 +146,8 @@ class SchedulePopup(BasePopup):
         y = (screen_height / 2) - (height / 2)
         reason_window.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
 
+        reason_window.attributes("-topmost", True)
+        
         ctk.CTkLabel(reason_window, text="대기 사유를 입력하세요.", font=FONTS["header"]).pack(pady=(20, 10))
         
         e_reason = ctk.CTkEntry(reason_window, width=300)
@@ -171,13 +160,12 @@ class SchedulePopup(BasePopup):
                 messagebox.showwarning("경고", "대기 사유를 입력해주세요.", parent=reason_window)
                 return
             
-            # 데이터 매니저를 통해 저장 (성공/실패 확인)
             success, msg = self.dm.update_status_to_waiting(self.req_no, reason_text)
             if success:
                 messagebox.showinfo("성공", "상태가 '대기'로 변경되었습니다.", parent=reason_window)
                 reason_window.destroy()
                 self.destroy()
-                self.refresh_callback() # 메인 화면 갱신
+                self.refresh_callback() 
             else:
                 messagebox.showerror("실패", msg, parent=reason_window)
         
@@ -187,58 +175,18 @@ class SchedulePopup(BasePopup):
         ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=80).pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="left", padx=5)
 
-    def open_resume_from_waiting_popup(self):
-        # [참고] 현재 이 기능은 하단의 'confirm' 메서드로 통합되어 사용자가 
-        # 하단 날짜 입력 후 버튼을 누르면 바로 생산중으로 변경되도록 유도합니다.
-        # 하지만 별도 버튼으로 진입했을 경우를 위해 남겨둡니다.
-        win = ctk.CTkToplevel(self)
-        win.title("생산 재개")
-        win.geometry("400x200")
-        win.attributes("-topmost", True)
-        
-        ctk.CTkLabel(win, text="새로운 출고예정일을 입력하세요.", font=FONTS["header"]).pack(pady=(20, 10))
-        
-        e_date = ctk.CTkEntry(win, width=300)
-        e_date.pack(pady=5)
-        e_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
-        e_date.focus_set()
-        
-        def submit_date():
-            date_str = e_date.get().strip()
-            if len(date_str) != 10:
-                messagebox.showwarning("경고", "날짜 형식을 확인해주세요 (yyyy-mm-dd)", parent=win)
-                return
-            
-            success, msg = self.dm.update_production_schedule(self.req_no, date_str)
-            if success:
-                messagebox.showinfo("성공", "생산이 재개되었습니다.", parent=win)
-                win.destroy()
-                self.destroy()
-                self.refresh_callback()
-            else:
-                messagebox.showerror("실패", msg, parent=win)
-        
-        btn_frame = ctk.CTkFrame(win, fg_color="transparent")
-        btn_frame.pack(pady=20)
-        
-        ctk.CTkButton(btn_frame, text="확인", command=submit_date, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=80).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="취소", command=win.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="left", padx=5)
-
     def confirm(self):
-        """하단 버튼 클릭 시: 날짜를 입력받아 생산중 상태로 변경"""
         date_str = self.date_entry.get()
         if len(date_str) != 10:
             messagebox.showwarning("경고", "날짜 형식을 확인해주세요 (yyyy-mm-dd)", parent=self)
             return
         
         try:
-            # 상태가 '대기'이든 '중지'이든 '접수'이든, 
-            # 여기서 날짜를 입력하고 확인을 누르면 '생산중'으로 변경되며 일정이 수립됩니다.
             success, msg = self.dm.update_production_schedule(self.req_no, date_str)
             if success:
                 messagebox.showinfo("성공", "생산 일정이 등록/수정 되었습니다.", parent=self)
                 self.destroy()
-                self.refresh_callback() # 메인 화면 갱신
+                self.refresh_callback() 
             else:
                 messagebox.showerror("실패", msg, parent=self)
         except Exception as e:

@@ -1,9 +1,13 @@
 # popups/complete_popup.py
-import customtkinter as ctk
-from tkinter import messagebox
-from .base_popup import BasePopup
 from datetime import datetime
+from tkinter import messagebox
+
+import customtkinter as ctk
+
 from styles import COLORS, FONTS
+
+from .base_popup import BasePopup
+
 
 class CompletePopup(BasePopup):
     def __init__(self, parent, data_manager, refresh_callback, req_no):
@@ -17,10 +21,14 @@ class CompletePopup(BasePopup):
         self.first_row = self.target_rows.iloc[0]
         self.current_status = str(self.first_row.get("Status", ""))
         
-        super().__init__(parent, data_manager, refresh_callback, title=f"생산 완료 처리 - 번호 [{req_no}]", geometry="800x800")
+        # [수정] req_no 전달
+        super().__init__(parent, data_manager, refresh_callback, title=f"생산 완료 처리 - 번호 [{req_no}]", geometry="800x800", req_no=req_no)
         self.create_widgets()
 
     def create_widgets(self):
+        # [수정] self.content_frame 사용
+        parent = self.content_frame
+        
         file_path = self.first_row.get("파일경로", "-")
 
         common_info = {
@@ -32,28 +40,23 @@ class CompletePopup(BasePopup):
         }
 
         # 상단 정보
-        info_frame = ctk.CTkFrame(self, fg_color="transparent")
+        info_frame = ctk.CTkFrame(parent, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
         
-        # 헤더 라인
         header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
         
         ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {self.req_no})", font=FONTS["title"]).pack(side="left")
 
-        # [버튼 배치: 오른쪽부터 순서대로]
-        # 1. PDF 버튼
         if file_path and str(file_path) != "-":
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
 
-        # 2. 중지 버튼
         self._add_hold_button(header_line, self.req_no, self.current_status)
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
 
-        # --- 그리드 배치 ---
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
         self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
 
@@ -70,9 +73,8 @@ class CompletePopup(BasePopup):
         self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 2, 0)
         self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 2, 1)
 
-        # 품목 리스트
-        ctk.CTkLabel(self, text="품목별 상세 정보 입력", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
-        scroll_frame = ctk.CTkScrollableFrame(self, height=300, corner_radius=10)
+        ctk.CTkLabel(parent, text="품목별 상세 정보 입력", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
+        scroll_frame = ctk.CTkScrollableFrame(parent, height=300, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
 
         self.entry_widgets = []
@@ -99,8 +101,7 @@ class CompletePopup(BasePopup):
 
             self.entry_widgets.append({"index": idx, "serial_w": e_serial, "lens_w": e_lens})
 
-        # 하단 입력
-        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer = ctk.CTkFrame(parent, fg_color="transparent")
         footer.pack(fill="x", padx=20, pady=20)
 
         ctk.CTkLabel(footer, text="출고일:").pack(side="left", padx=(0, 5))
@@ -113,12 +114,9 @@ class CompletePopup(BasePopup):
         self.e_memo.pack(side="left", fill="x", expand=True, padx=(0, 20))
 
         ctk.CTkButton(footer, text="입력 완료 및 저장", command=self.save, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=150).pack(side="right")
-        
-        # 삭제 버튼 추가
         ctk.CTkButton(footer, text="요청 삭제", command=self.delete_entry, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], width=150).pack(side="right", padx=(0, 5))
 
     def delete_entry(self):
-        """요청 번호에 해당하는 데이터를 삭제합니다."""
         if messagebox.askyesno("삭제 확인", f"정말로 요청 번호 [{self.req_no}]의 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", parent=self):
             success, msg = self.dm.delete_request(self.req_no)
             if success:
@@ -127,7 +125,6 @@ class CompletePopup(BasePopup):
                 self.refresh_callback()
             else:
                 messagebox.showerror("삭제 실패", msg, parent=self)
-
 
     def open_change_date_popup(self):
         self._open_change_date_input(self.req_no, self.lbl_expected_date.cget("text"), parent=self)

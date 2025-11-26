@@ -30,7 +30,7 @@ class Config:
     CONFIG_FILENAME = os.path.join(APP_DIR, "config.json")
     
     # 6. 애플리케이션 버전
-    APP_VERSION = "1.0.0"
+    APP_VERSION = "1.1.0"
     
     # ---------------------------------------------------------
     # [기타 설정]
@@ -42,9 +42,9 @@ class Config:
     # [시트 이름 정의]
     SHEET_DATA = "Data"
     SHEET_LOG = "Log"
+    SHEET_MEMO = "Memos" # [신규] 메모 시트 추가
 
     # 엑셀 헤더 정의 (A열 ~ P열)
-    # [수정] "대기사유" (P열) 추가
     COLUMNS = [
         "번호", "업체명", "모델명", "상세", "수량", 
         "기타요청사항", "업체별 특이사항", "출고요청일", 
@@ -54,6 +54,9 @@ class Config:
     
     # 로그 시트 헤더 정의
     LOG_COLUMNS = ["일시", "작업자", "구분", "상세내용"]
+
+    # [신규] 메모 시트 헤더 정의
+    MEMO_COLUMNS = ["번호", "일시", "작업자", "PC정보", "내용"]
 
     # 화면에 보여줄 컬럼
     DISPLAY_COLUMNS = [

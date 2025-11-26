@@ -1,5 +1,7 @@
+import getpass
 import json
 import os
+import platform
 from datetime import datetime
 
 import pandas as pd
@@ -10,7 +12,8 @@ from config import Config
 class DataManager:
     def __init__(self):
         self.df = pd.DataFrame()
-        self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) # 로그 데이터프레임 초기화
+        self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) # 로그 데이터프레임
+        self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS) # [신규] 메모 데이터프레임
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
         self.load_config()
 
@@ -31,13 +34,9 @@ class DataManager:
             json.dump({"excel_path": new_path}, f, ensure_ascii=False, indent=4)
 
     def load_data(self):
-        """
-        [수정] 엑셀 파일 로드 시 Context Manager(with) 사용
-        파일 핸들을 즉시 반환하여 VBA 등 다른 프로그램과의 충돌 최소화
-        """
+        """엑셀 파일 로드"""
         if os.path.exists(self.current_excel_path):
             try:
-                # [핵심 수정] with 구문을 사용하여 파일을 열고 난 후 즉시 닫음
                 with pd.ExcelFile(self.current_excel_path) as xls:
                     # 1. 생산 데이터 시트 로드
                     if Config.SHEET_DATA in xls.sheet_names:
@@ -50,6 +49,12 @@ class DataManager:
                         self.log_df = pd.read_excel(xls, Config.SHEET_LOG)
                     else:
                         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS)
+                        
+                    # 3. [신규] 메모 시트 로드
+                    if Config.SHEET_MEMO in xls.sheet_names:
+                        self.memo_df = pd.read_excel(xls, Config.SHEET_MEMO)
+                    else:
+                        self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
                 # 컬럼 매핑 보정
                 current_cols_len = len(self.df.columns)
@@ -70,30 +75,6 @@ class DataManager:
         else:
             return False, self.current_excel_path
 
-    def create_dummy_data(self):
-        """테스트용 더미 데이터 생성"""
-        data = {
-            "번호": [1, 2, 3, 4, 5, 6, 7],
-            "업체명": ["삼성전자", "LG화학", "SK하이닉스", "네이버", "카카오", "현대차", "기아"],
-            "모델명": ["COX-A100", "COX-B200", "COX-C300", "COX-A100", "COX-D500", "COX-E600", "COX-F700"],
-            "상세": ["기본형", "고급형", "방수형", "기본형", "산업용", "차량용", "항공용"],
-            "수량": [10, 5, 20, 15, 8, 30, 12],
-            "기타요청사항": ["빠른배송", None, "포장주의", None, "검수철저", "", ""],
-            "업체별 특이사항": ["VIP", "신규", None, "VIP", None, "", ""],
-            "출고요청일": ["2023-11-01", "2023-11-05", "2023-11-10", "2023-11-12", "2023-11-20", "2023-11-25", "2023-11-30"],
-            "출고예정일": [None, "2023-11-15", None, None, None, "2023-12-01", None],
-            "출고일": [None, None, None, None, None, None, None],
-            "시리얼번호": [None, None, None, None, None, None, None],
-            "렌즈업체": [None, None, None, None, None, None, None],
-            "생산팀 메모": [None, None, None, None, None, None, None],
-            "Status": ["생산 접수", "생산중", "대기", "완료", "출고", "생산 접수", "생산중"],
-            "파일경로": [None]*7,
-            "대기사유": [None, None, "부품 지연", None, None, None, None]
-        }
-        self.df = pd.DataFrame(data)
-        self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS)
-        self._preprocess_data()
-
     def _preprocess_data(self):
         """데이터 내부 전처리"""
         if self.df.empty:
@@ -108,22 +89,24 @@ class DataManager:
                  self.df[date_col] = pd.to_datetime(self.df[date_col], errors='coerce', format='mixed').dt.strftime('%Y-%m-%d')
 
         self.df = self.df.fillna('-')
+        
+        # 메모 데이터프레임 전처리
+        if self.memo_df.empty:
+            self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
+        
+        # 날짜 포맷팅 등 필요시 추가
 
     def save_to_excel(self):
-        """
-        데이터와 로그를 엑셀 파일에 저장
-        반환값: (성공여부 Bool, 메시지 String)
-        """
+        """데이터, 로그, 메모를 엑셀 파일에 저장"""
         existing_cols = [c for c in Config.COLUMNS if c in self.df.columns]
         output_df = self.df[existing_cols]
 
         try:
-            # ExcelWriter도 with 구문을 써서 저장 직후 파일 닫기 보장
             with pd.ExcelWriter(self.current_excel_path, engine="openpyxl") as writer:
                 output_df.to_excel(writer, sheet_name=Config.SHEET_DATA, index=False)
                 self.log_df.to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
+                self.memo_df.to_excel(writer, sheet_name=Config.SHEET_MEMO, index=False)
             
-            # 저장 후 메모리 갱신을 위해 재로드
             self.load_data()
             return True, "저장되었습니다."
 
@@ -137,9 +120,9 @@ class DataManager:
     # -----------------------------------------------------
     def _add_log(self, action, details):
         try:
-            user = os.getlogin()
+            user = getpass.getuser()
         except:
-            user = os.environ.get('USERNAME', 'Unknown')
+            user = "Unknown"
 
         new_entry = {
             "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -150,6 +133,43 @@ class DataManager:
         self.log_df = pd.concat([self.log_df, pd.DataFrame([new_entry])], ignore_index=True)
 
     # -----------------------------------------------------
+    # [Memo System] (신규)
+    # -----------------------------------------------------
+    def add_memo(self, req_no, content):
+        """특정 번호에 대한 메모 추가"""
+        try:
+            user = getpass.getuser()
+            pc_info = platform.node()
+        except:
+            user = "Unknown"
+            pc_info = "Unknown"
+
+        new_memo = {
+            "번호": str(req_no),
+            "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "작업자": user,
+            "PC정보": pc_info,
+            "내용": content
+        }
+        self.memo_df = pd.concat([self.memo_df, pd.DataFrame([new_memo])], ignore_index=True)
+        return self.save_to_excel()
+
+    def get_memos(self, req_no):
+        """특정 번호의 메모 목록 조회 (최신순 정렬)"""
+        if self.memo_df.empty:
+            return []
+            
+        mask = self.memo_df["번호"].astype(str) == str(req_no)
+        target_memos = self.memo_df[mask].copy()
+        
+        if target_memos.empty:
+            return []
+            
+        # 최신순 정렬 (일시 기준 내림차순)
+        target_memos = target_memos.sort_values(by="일시", ascending=False)
+        return target_memos.to_dict('records')
+
+    # -----------------------------------------------------
     # Business Logic
     # -----------------------------------------------------
     def get_status_list(self):
@@ -158,10 +178,8 @@ class DataManager:
         return []
 
     def get_status_by_req_no(self, req_no):
-        """요청 번호로 현재 상태(Status)를 조회합니다."""
         if self.df.empty or "번호" not in self.df.columns:
             return None
-        
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
             return self.df.loc[mask, "Status"].iloc[0]
@@ -195,7 +213,7 @@ class DataManager:
         return filtered_df
 
     # -----------------------------------------------------
-    # Update Functions (Return save_to_excel result)
+    # Update Functions
     # -----------------------------------------------------
     def update_production_schedule(self, req_no, date_str):
         mask = self.df["번호"].astype(str) == str(req_no)
@@ -261,16 +279,14 @@ class DataManager:
         return False, "데이터를 찾을 수 없습니다."
 
     def delete_request(self, req_no):
-        """요청 번호에 해당하는 모든 데이터를 삭제합니다."""
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
-            # 삭제 전 로그 남기기
             details = f"번호[{req_no}] 데이터 삭제"
             self._add_log("데이터 삭제", details)
-            
-            # 해당 데이터를 제외한 나머지로 df 갱신
             self.df = self.df[~mask]
             
-            # 엑셀에 저장
+            # 관련된 메모도 삭제? (선택사항, 일단 유지하거나 함께 삭제)
+            # 여기서는 메모는 로그성으로 남겨두기로 함
+            
             return self.save_to_excel()
         return False, "삭제할 데이터를 찾을 수 없습니다."
