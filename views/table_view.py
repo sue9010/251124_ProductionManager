@@ -5,8 +5,8 @@ from tkinter import messagebox, ttk
 import customtkinter as ctk
 
 from config import Config
-# [수정] get_color_str 도우미 함수 임포트
-from styles import COLORS, FONTS, get_color_str
+# [수정] FONT_FAMILY 추가 임포트
+from styles import COLORS, FONT_FAMILY, FONTS, get_color_str
 
 
 class TableView(ctk.CTkFrame):
@@ -15,73 +15,59 @@ class TableView(ctk.CTkFrame):
         self.dm = data_manager
         self.pm = popup_manager
 
-        # 로컬 상태 변수
         self.search_start_date = None
         self.search_end_date = None
         self.sort_col = None
         self.sort_desc = False
         
-        # 필터 상태 (기본값)
         self.filter_states = {
             "생산 접수": True, "대기": False, "생산중": True, "중지": False, "완료": False
         }
         self.filter_check_vars = {}
 
         self.create_widgets()
-        # [수정] 초기 스타일 적용
         self.style_treeview()
         
-        # 이벤트 바인딩
         self.tree.bind("<Double-1>", self.on_double_click)
-        
-        # 초기 데이터 로드
         self.refresh_data()
 
     def create_widgets(self):
-        # ===================================================
-        # 1. Toolbar (상단 툴바)
-        # ===================================================
         self.toolbar_wrapper = ctk.CTkFrame(self, fg_color=COLORS["bg_dark"], height=60)
         self.toolbar_wrapper.pack(side="top", fill="x", padx=20, pady=(20, 10))
 
-        # [Left] Filter Dropdown Group
         view_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
         view_frame.pack(side="left")
         
-        ctk.CTkLabel(view_frame, text="Filter:", font=("Malgun Gothic", 12, "bold"), text_color=COLORS["text_dim"]).pack(side="left", padx=(0, 10))
+        # [수정] 폰트 적용
+        ctk.CTkLabel(view_frame, text="Filter:", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS["text_dim"]).pack(side="left", padx=(0, 10))
 
         FILTER_WIDTH = 120
         self.filter_dropdown_btn = ctk.CTkButton(
             view_frame, text="필터 선택 ▼", command=self.toggle_filter_dropdown,
             width=FILTER_WIDTH, height=34, fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"],
-            border_color=COLORS["border"], border_width=1, font=("Malgun Gothic", 12), anchor="w"
+            border_color=COLORS["border"], border_width=1, font=(FONT_FAMILY, 12), anchor="w"
         )
         self.filter_dropdown_btn.pack(side="left")
 
-        # Dropdown Frame (메인 윈도우에 부착하기 위해 winfo_toplevel 사용)
         self.dropdown_frame = ctk.CTkFrame(self.winfo_toplevel(), width=FILTER_WIDTH, fg_color=COLORS["bg_medium"], border_width=1, border_color=COLORS["primary"], corner_radius=5)
-        self.dropdown_frame.pack_propagate(False) # 크기 고정
+        self.dropdown_frame.pack_propagate(False)
         
         self._init_filter_checkboxes()
         self.is_dropdown_open = False
 
-        # [Right] Search Group
         control_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
         control_frame.pack(side="right")
 
-        self.search_entry = ctk.CTkEntry(control_frame, width=220, height=34, placeholder_text="번호, 업체, 모델...", border_color=COLORS["border"], fg_color=COLORS["bg_medium"])
+        self.search_entry = ctk.CTkEntry(control_frame, width=220, height=34, placeholder_text="번호, 업체, 모델...", border_color=COLORS["border"], fg_color=COLORS["bg_medium"], font=(FONT_FAMILY, 12))
         self.search_entry.pack(side="left", padx=5)
         self.search_entry.bind("<Return>", lambda e: self.refresh_data())
 
         ctk.CTkButton(
             control_frame, text="검색", command=self.refresh_data, 
             width=60, height=34, fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"], 
-            border_width=1, border_color=COLORS["border"]
+            border_width=1, border_color=COLORS["border"], font=(FONT_FAMILY, 12)
         ).pack(side="left", padx=2)
 
-        # ===================================================
-        # 2. Treeview (중앙 리스트)
-        # ===================================================
         self.tree_bg_frame = ctk.CTkFrame(self, fg_color=COLORS["bg_medium"], corner_radius=10)
         self.tree_bg_frame.pack(side="top", fill="both", expand=True, padx=20, pady=(0, 20))
         
@@ -102,33 +88,24 @@ class TableView(ctk.CTkFrame):
             if col == "Status": width = 100
             self.tree.column(col, width=width, anchor="center")
 
-        # ===================================================
-        # 3. Dashboard (하단 정보바)
-        # ===================================================
         self.dashboard_frame = ctk.CTkFrame(self, height=40, fg_color=COLORS["bg_medium"], corner_radius=0)
         self.dashboard_frame.pack(side="bottom", fill="x")
         
-        self.dashboard_label = ctk.CTkLabel(self.dashboard_frame, text="Ready", font=("Malgun Gothic", 11), text_color=COLORS["text_dim"])
+        # [수정] 폰트 적용
+        self.dashboard_label = ctk.CTkLabel(self.dashboard_frame, text="Ready", font=(FONT_FAMILY, 11), text_color=COLORS["text_dim"])
         self.dashboard_label.pack(side="left", padx=30, pady=8)
 
-    # ===================================================
-    # Data Logic
-    # ===================================================
     def refresh_data(self):
-        """현재 필터/검색 조건으로 데이터 다시 불러오기"""
-        # [수정] 테마가 변경되었을 수 있으므로 Treeview 스타일 재적용
         self.style_treeview()
 
         selected_statuses = [s for s, active in self.filter_states.items() if active]
         keyword = self.search_entry.get().strip()
         
-        # DataManager에서 필터링된 데이터 가져오기
         filtered_df = self.dm.get_filtered_data(
             selected_statuses, keyword, 
             sort_by=self.sort_col, ascending=not self.sort_desc
         )
         
-        # 트리뷰 초기화
         for item in self.tree.get_children():
             self.tree.delete(item)
             
@@ -150,7 +127,6 @@ class TableView(ctk.CTkFrame):
         self.update_dashboard(filtered_df)
 
     def update_dashboard(self, df):
-        """하단 대시보드 갱신"""
         if df is None or df.empty or 'Status' not in df.columns:
             total, waiting, hold = 0, 0, 0
         else:
@@ -161,11 +137,7 @@ class TableView(ctk.CTkFrame):
         status_text = f"  📦 전체 항목: {total}   |   ⏳ 생산 대기: {waiting}   |   ⛔ 중지: {hold}"
         self.dashboard_label.configure(text=status_text)
 
-    # ===================================================
-    # Event Handlers
-    # ===================================================
     def on_header_click(self, col):
-        """헤더 클릭 시 정렬"""
         if self.sort_col == col:
             self.sort_desc = not self.sort_desc
         else:
@@ -180,7 +152,6 @@ class TableView(ctk.CTkFrame):
         self.refresh_data()
 
     def on_double_click(self, event):
-        """행 더블 클릭 시 팝업 오픈"""
         selected = self.tree.selection()
         if not selected: return
         
@@ -188,7 +159,6 @@ class TableView(ctk.CTkFrame):
         values = self.tree.item(item, "values")
         req_no = values[0]
         
-        # 정확한 상태 파악을 위해 DM 조회
         status = self.dm.get_status_by_req_no(req_no)
         
         if status in ["생산 접수", "대기","중지"]:
@@ -198,30 +168,24 @@ class TableView(ctk.CTkFrame):
         elif status == "완료":
             self.pm.open_completed_view_popup(req_no)
 
-    # ===================================================
-    # Filter Dropdown Logic (Custom)
-    # ===================================================
     def _init_filter_checkboxes(self):
-        # 전체 선택
         self.cb_all = ctk.CTkCheckBox(
             self.dropdown_frame, text="전체", command=self.toggle_all_filters,
-            font=("Malgun Gothic", 11, "bold"), fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]
+            font=(FONT_FAMILY, 11, "bold"), fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]
         )
         self.cb_all.pack(anchor="w", padx=10, pady=(10, 5))
         
         ctk.CTkFrame(self.dropdown_frame, height=1, fg_color=COLORS["border"]).pack(fill="x", padx=5, pady=2)
         
-        # 개별 상태
         for status, is_checked in self.filter_states.items():
             var = ctk.BooleanVar(value=is_checked)
             self.filter_check_vars[status] = var
             cb = ctk.CTkCheckBox(
                 self.dropdown_frame, text=status, variable=var, command=self.on_filter_change,
-                font=("Malgun Gothic", 11), fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]
+                font=(FONT_FAMILY, 11), fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"]
             )
             cb.pack(anchor="w", padx=10, pady=3)
             
-        # 높이 자동 조절
         item_count = len(self.filter_states)
         calc_height = 45 + (item_count * 32) + 0
         self.dropdown_frame.configure(height=calc_height)
@@ -240,7 +204,6 @@ class TableView(ctk.CTkFrame):
             self.is_dropdown_open = True
 
     def close_dropdown(self):
-        """외부에서 호출하여 드롭다운 닫기"""
         if self.is_dropdown_open:
             self.dropdown_frame.place_forget()
             self.is_dropdown_open = False
@@ -273,51 +236,42 @@ class TableView(ctk.CTkFrame):
             text = f"선택됨 ({count}) ▼"
         self.filter_dropdown_btn.configure(text=text)
 
-    # ===================================================
-    # Styling
-    # ===================================================
     def style_treeview(self):
-        """
-        [수정] ttk 위젯은 튜플 색상(("Light", "Dark"))을 인식하지 못하므로
-        get_color_str()을 사용하여 현재 모드에 맞는 단일 색상 코드를 가져와서 적용합니다.
-        """
         style = ttk.Style()
         style.theme_use("default")
         
-        # 현재 모드에 맞는 색상 가져오기
         bg_color = get_color_str("bg_dark")
         fg_color = get_color_str("text")
-        header_bg = "#3a3a3a" if ctk.get_appearance_mode() == "Dark" else "#DDDDDD"
+        header_bg = "#3a3a3a" if ctk.get_appearance_mode() == "Dark" else "#E0E0E0" # 헤더 배경 조금 진하게
         header_fg = get_color_str("primary")
         selected_bg = get_color_str("primary_hover")
         
+        # [핵심 수정] 하드코딩된 "Malgun Gothic"을 FONT_FAMILY 변수로 교체
         style.configure(
             "Treeview", 
             background=bg_color, 
             foreground=fg_color, 
             fieldbackground=bg_color, 
             rowheight=38, 
-            font=("Malgun Gothic", 11), 
+            font=(FONT_FAMILY, 11), 
             borderwidth=0
         )
         style.configure(
             "Treeview.Heading", 
             background=header_bg, 
             foreground=header_fg, 
-            font=("Malgun Gothic", 12, "bold"), 
+            font=(FONT_FAMILY, 12, "bold"), 
             relief="flat", 
             padding=(0, 8)
         )
         style.map("Treeview.Heading", background=[('active', "#444444" if ctk.get_appearance_mode() == "Dark" else "#BBBBBB")])
         style.map("Treeview", background=[('selected', selected_bg)])
         
-        # 태그별 색상 (배경색은 고정)
         self.tree.tag_configure("중지", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("Hold", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("완료", foreground="#888888")
         self.tree.tag_configure("생산중", foreground="#4caf50")
         self.tree.tag_configure("대기", foreground="#ff9800")
         
-        # 당일 건 강조 (배경색)
         today_bg = "#2c3e50" if ctk.get_appearance_mode() == "Dark" else "#D4E6F1"
         self.tree.tag_configure("today", background=today_bg)

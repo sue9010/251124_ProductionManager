@@ -5,7 +5,8 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
-from styles import COLORS, FONTS
+# [수정] FONT_FAMILY 추가 임포트
+from styles import COLORS, FONT_FAMILY, FONTS
 
 
 class BasePopup(ctk.CTkToplevel):
@@ -139,7 +140,9 @@ class BasePopup(ctk.CTkToplevel):
 
         # Header: Date | User (PC)
         header_text = f"{memo['일시']} | {memo['작업자']} ({memo['PC정보']})"
-        ctk.CTkLabel(card, text=header_text, font=("Malgun Gothic", 12), text_color=COLORS["text_dim"]).pack(anchor="w", padx=10, pady=(8, 2))
+        
+        # [핵심 수정] 하드코딩된 "Malgun Gothic"을 FONT_FAMILY로 교체
+        ctk.CTkLabel(card, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(anchor="w", padx=10, pady=(8, 2))
 
         # Content
         content_lbl = ctk.CTkLabel(card, text=memo['내용'], font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")

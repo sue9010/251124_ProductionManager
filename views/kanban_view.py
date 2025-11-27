@@ -5,7 +5,8 @@ from tkinter import messagebox
 import customtkinter as ctk
 import pandas as pd
 
-from styles import COLORS, FONTS
+# [수정] FONT_FAMILY 추가
+from styles import COLORS, FONT_FAMILY, FONTS
 
 
 class KanbanView(ctk.CTkFrame):
@@ -14,7 +15,6 @@ class KanbanView(ctk.CTkFrame):
         self.dm = data_manager
         self.pm = popup_manager
 
-        # 상태 정의 및 표시 순서
         self.columns = {
             "생산 접수": {"color": COLORS["primary"], "bg": COLORS["bg_dark"]},
             "대기":     {"color": COLORS["warning"], "bg": COLORS["bg_dark"]},
@@ -23,11 +23,9 @@ class KanbanView(ctk.CTkFrame):
             "완료":     {"color": COLORS["text_dim"], "bg": COLORS["bg_dark"]}
         }
         
-        # UI 요소 저장소
-        self.column_frames = {}  # { "상태명": scrollable_frame }
-        self.cards = {}          # { req_no: card_widget }
+        self.column_frames = {} 
+        self.cards = {}          
 
-        # 드래그 앤 드롭 상태
         self.drag_data = {
             "item": None, "req_no": None, "text": None, "window": None, "start_status": None
         }
@@ -37,7 +35,6 @@ class KanbanView(ctk.CTkFrame):
         self.create_widgets()
         self.refresh_data()
 
-    # [핵심 수정] 종료 시 타이머 취소
     def destroy(self):
         if self.click_timer:
             self.after_cancel(self.click_timer)
@@ -53,7 +50,7 @@ class KanbanView(ctk.CTkFrame):
         ctk.CTkButton(
             toolbar, text="🔄 새로고침", width=80, height=32,
             fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"],
-            command=self.refresh_data
+            command=self.refresh_data, font=FONTS["main"]
         ).pack(side="right")
 
         self.board_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -70,13 +67,15 @@ class KanbanView(ctk.CTkFrame):
             header = ctk.CTkFrame(col_container, height=40, fg_color="transparent")
             header.pack(fill="x", padx=10, pady=5)
             
-            dot = ctk.CTkLabel(header, text="●", font=("Arial", 14), text_color=style["color"])
+            # [수정] Arial -> FONT_FAMILY
+            dot = ctk.CTkLabel(header, text="●", font=(FONT_FAMILY, 14), text_color=style["color"])
             dot.pack(side="left", padx=(0, 5))
             
-            title = ctk.CTkLabel(header, text=status, font=FONTS["header"])
+            title = ctk.CTkLabel(header, text=status, font=FONTS["header"], text_color=COLORS["text"])
             title.pack(side="left")
             
-            count_badge = ctk.CTkLabel(header, text="0", width=24, height=24, fg_color=COLORS["bg_medium"], corner_radius=12, font=("Arial", 10, "bold"))
+            # [수정] Arial -> FONT_FAMILY
+            count_badge = ctk.CTkLabel(header, text="0", width=24, height=24, fg_color=COLORS["bg_medium"], corner_radius=12, font=(FONT_FAMILY, 10, "bold"), text_color=COLORS["text"])
             count_badge.pack(side="right")
             
             scroll_frame = ctk.CTkScrollableFrame(col_container, fg_color="transparent")
@@ -136,11 +135,12 @@ class KanbanView(ctk.CTkFrame):
             top_row = ctk.CTkFrame(card, fg_color="transparent", height=20)
             top_row.pack(fill="x", padx=8, pady=(8, 2))
             
-            ctk.CTkLabel(top_row, text=comp, font=("Malgun Gothic", 11, "bold"), text_color=COLORS["primary"]).pack(side="left")
+            # [수정] 폰트 적용
+            ctk.CTkLabel(top_row, text=comp, font=(FONT_FAMILY, 11, "bold"), text_color=COLORS["primary"]).pack(side="left")
             
             item_count = len(group_df)
             count_text = f"{item_count}종" if item_count > 1 else "1종"
-            ctk.CTkLabel(top_row, text=count_text, font=("Malgun Gothic", 10), text_color=COLORS["text_dim"]).pack(side="right")
+            ctk.CTkLabel(top_row, text=count_text, font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(side="right")
             
             mid_row = ctk.CTkFrame(card, fg_color="transparent")
             mid_row.pack(fill="x", padx=8, pady=2)
@@ -149,15 +149,15 @@ class KanbanView(ctk.CTkFrame):
                 model = str(row['모델명'])
                 qty = str(row['수량'])
                 item_text = f"• {model} ({qty})"
-                ctk.CTkLabel(mid_row, text=item_text, font=("Malgun Gothic", 11), text_color=COLORS["text"], wraplength=180, justify="left", anchor="w").pack(fill="x", anchor="w")
+                ctk.CTkLabel(mid_row, text=item_text, font=(FONT_FAMILY, 11), text_color=COLORS["text"], wraplength=180, justify="left", anchor="w").pack(fill="x", anchor="w")
             
             bot_row = ctk.CTkFrame(card, fg_color="transparent")
             bot_row.pack(fill="x", padx=8, pady=(5, 8))
-            ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=("Arial", 10), text_color=COLORS["text_dim"]).pack(side="left")
+            ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(side="left")
             
             date_color = COLORS["text_dim"]
             if status == "생산중": date_color = COLORS["success"]
-            ctk.CTkLabel(bot_row, text=date, font=("Arial", 10), text_color=date_color).pack(side="right")
+            ctk.CTkLabel(bot_row, text=date, font=(FONT_FAMILY, 10), text_color=date_color).pack(side="right")
 
             drag_text = f"[{req_no}] {comp} ({item_count}종)"
             widgets_to_bind = [card, top_row, mid_row, bot_row] + top_row.winfo_children() + mid_row.winfo_children() + bot_row.winfo_children()
@@ -181,7 +181,7 @@ class KanbanView(ctk.CTkFrame):
             self.drag_data["window"].overrideredirect(True)
             self.drag_data["window"].attributes("-topmost", True)
             self.drag_data["window"].attributes("-alpha", 0.7)
-            lbl = ctk.CTkLabel(self.drag_data["window"], text=text, fg_color=COLORS["primary"], text_color="white", corner_radius=5, padx=10, pady=5)
+            lbl = ctk.CTkLabel(self.drag_data["window"], text=text, fg_color=COLORS["primary"], text_color="white", corner_radius=5, padx=10, pady=5, font=FONTS["main"])
             lbl.pack()
         x, y = self.winfo_pointerxy()
         self.drag_data["window"].geometry(f"+{x+15}+{y+15}")

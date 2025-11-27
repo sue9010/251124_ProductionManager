@@ -5,7 +5,8 @@ from tkinter import messagebox
 import customtkinter as ctk
 import pandas as pd
 
-from styles import COLORS, FONTS
+# [수정] FONT_FAMILY 추가
+from styles import COLORS, FONT_FAMILY, FONTS
 
 
 class CalendarView(ctk.CTkFrame):
@@ -26,7 +27,6 @@ class CalendarView(ctk.CTkFrame):
         self.create_widgets()
         self.refresh_data()
 
-    # [핵심 수정] 종료 시 타이머 취소
     def destroy(self):
         if self.click_timer:
             self.after_cancel(self.click_timer)
@@ -39,7 +39,8 @@ class CalendarView(ctk.CTkFrame):
 
         self.btn_prev = ctk.CTkButton(
             header_frame, text="< 이전 4주", command=self.prev_weeks, 
-            fg_color=COLORS["bg_medium"], hover_color=COLORS["danger_hover"], width=100, height=32
+            fg_color=COLORS["bg_medium"], hover_color=COLORS["danger_hover"], width=100, height=32,
+            font=FONTS["main"], text_color=COLORS["text"]
         )
         self.btn_prev.pack(side="left")
         
@@ -48,14 +49,15 @@ class CalendarView(ctk.CTkFrame):
         
         self.btn_next = ctk.CTkButton(
             header_frame, text="다음 4주 >", command=self.next_weeks, 
-            fg_color=COLORS["bg_medium"], hover_color=COLORS["primary_hover"], width=100, height=32
+            fg_color=COLORS["bg_medium"], hover_color=COLORS["primary_hover"], width=100, height=32,
+            font=FONTS["main"], text_color=COLORS["text"]
         )
         self.btn_next.pack(side="right")
 
         ctk.CTkButton(
             header_frame, text="🔄 새로고침", width=80, height=32,
             fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], 
-            command=self.refresh_data
+            command=self.refresh_data, font=FONTS["main"], text_color=COLORS["text"]
         ).pack(side="right", padx=(0, 10))
 
         content_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -117,7 +119,8 @@ class CalendarView(ctk.CTkFrame):
             if curr_company != last_company:
                 if last_company is not None:
                     ctk.CTkFrame(parent_frame, height=1, fg_color=COLORS["border"]).pack(fill="x", pady=5)
-                ctk.CTkLabel(parent_frame, text=f"🏢 {curr_company}", font=("Malgun Gothic", 12, "bold"), text_color=COLORS["primary"], anchor="w").pack(fill="x", pady=(5, 2), padx=2)
+                # [수정] 폰트 적용
+                ctk.CTkLabel(parent_frame, text=f"🏢 {curr_company}", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS["primary"], anchor="w").pack(fill="x", pady=(5, 2), padx=2)
                 last_company = curr_company
 
             item_text = f"[{req_no}] {model} ({qty}개)"
@@ -180,6 +183,7 @@ class CalendarView(ctk.CTkFrame):
             display_text = str(day_num)
             if day_num == 1 or i == 0: display_text = f"{current_day_date.month}/{current_day_date.day}"
             
+            # [수정] 폰트 적용
             ctk.CTkLabel(cell_frame, text=display_text, font=FONTS["small"], text_color=day_color).grid(row=0, column=0, sticky="nw", padx=5, pady=(2, 0))
             
             if date_str in events:
@@ -203,7 +207,8 @@ class CalendarView(ctk.CTkFrame):
                     origin_date = first_item.get("출고예정일")
                     
                     header_text = f"• [{comp_name}]"
-                    header_label = ctk.CTkLabel(event_scroll_frame, text=header_text, font=("Malgun Gothic", 10, "bold"), anchor="w", height=14, text_color=COLORS["primary"], fg_color="transparent")
+                    # [수정] 폰트 적용
+                    header_label = ctk.CTkLabel(event_scroll_frame, text=header_text, font=(FONT_FAMILY, 10, "bold"), anchor="w", height=14, text_color=COLORS["primary"], fg_color="transparent")
                     header_label.pack(fill="x", pady=(2, 0), padx=1)
                     
                     drag_text_header = f"[{r_no}] {comp_name} ({len(group)} items)"
@@ -213,7 +218,8 @@ class CalendarView(ctk.CTkFrame):
                         model_name = str(item['모델명'])
                         qty = item['수량']
                         item_text = f"   - {model_name} ({qty})"
-                        item_label = ctk.CTkLabel(event_scroll_frame, text=item_text, font=("Malgun Gothic", 9), anchor="w", height=12, text_color=COLORS["text"], fg_color="transparent")
+                        # [수정] 폰트 적용
+                        item_label = ctk.CTkLabel(event_scroll_frame, text=item_text, font=(FONT_FAMILY, 9), anchor="w", height=12, text_color=COLORS["text"], fg_color="transparent")
                         item_label.pack(fill="x", pady=0, padx=1)
                         drag_text_item = f"[{r_no}] {comp_name} - {model_name}"
                         self._bind_item_events(item_label, r_no, origin_date, drag_text_item, is_header=False)
@@ -237,7 +243,7 @@ class CalendarView(ctk.CTkFrame):
             self.drag_data["window"].attributes("-topmost", True)
             self.drag_data["window"].attributes("-alpha", 0.7)
             
-            lbl = ctk.CTkLabel(self.drag_data["window"], text=text, fg_color=COLORS["bg_dark"], text_color=COLORS["text"], corner_radius=5, padx=8, pady=4)
+            lbl = ctk.CTkLabel(self.drag_data["window"], text=text, fg_color=COLORS["bg_dark"], text_color=COLORS["text"], corner_radius=5, padx=8, pady=4, font=FONTS["main"])
             lbl.pack()
             
         x, y = self.winfo_pointerxy()
