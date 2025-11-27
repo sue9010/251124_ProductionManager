@@ -10,7 +10,6 @@ from .base_popup import BasePopup
 
 class SettingsPopup(BasePopup):
     def __init__(self, parent, data_manager, refresh_callback):
-        # 높이를 조금 더 늘려서 첨부 파일 경로 섹션 확보 (500x300 -> 500x450)
         super().__init__(parent, data_manager, refresh_callback, title="환경 설정", geometry="500x450")
         self.create_widgets()
 
@@ -54,7 +53,7 @@ class SettingsPopup(BasePopup):
         # 구분선
         ctk.CTkFrame(parent, height=1, fg_color=COLORS["border"]).pack(fill="x", padx=20, pady=20)
 
-        # 3. [신규] 첨부 파일 저장 경로 설정 섹션
+        # 3. 첨부 파일 저장 경로 설정 섹션
         ctk.CTkLabel(parent, text="첨부 파일 저장 폴더 설정", font=FONTS["header"]).pack(pady=(0, 10), padx=20, anchor="w")
 
         attach_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -66,7 +65,7 @@ class SettingsPopup(BasePopup):
 
         ctk.CTkButton(attach_frame, text="폴더 선택", width=80, command=self.browse_folder, text_color=COLORS["text"],fg_color=COLORS["bg_light"], font=(FONT_FAMILY, 12)).pack(side="right")
 
-        # 4. 하단 저장 버튼1
+        # 4. 하단 저장 버튼
         ctk.CTkButton(parent, text="설정 저장 및 닫기", command=self.save, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], font=(FONT_FAMILY, 12, "bold")).pack(side="bottom", pady=20)
 
     def change_theme(self, new_theme):
@@ -74,13 +73,31 @@ class SettingsPopup(BasePopup):
         ctk.set_appearance_mode(new_theme)
 
     def browse_excel(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+        # [핵심 수정] 파일 탐색기가 팝업 뒤로 숨지 않도록 일시적으로 '항상 위' 속성 해제
+        self.attributes("-topmost", False)
+        
+        file_path = filedialog.askopenfilename(
+            parent=self, 
+            filetypes=[("Excel files", "*.xlsx;*.xls")]
+        )
+        
+        # 탐색기가 닫히면 다시 '항상 위' 설정 복구
+        self.attributes("-topmost", True)
+        self.lift() # 창을 다시 맨 앞으로
+
         if file_path:
             self.path_entry.delete(0, "end")
             self.path_entry.insert(0, file_path)
 
     def browse_folder(self):
-        folder_path = filedialog.askdirectory()
+        # [핵심 수정] 폴더 탐색기도 동일하게 처리
+        self.attributes("-topmost", False)
+        
+        folder_path = filedialog.askdirectory(parent=self)
+        
+        self.attributes("-topmost", True)
+        self.lift()
+
         if folder_path:
             self.attach_path_entry.delete(0, "end")
             self.attach_path_entry.insert(0, folder_path)
@@ -94,11 +111,19 @@ class SettingsPopup(BasePopup):
             try:
                 # 경로와 테마, 첨부 폴더 모두 저장
                 self.dm.save_config(new_path, new_theme, new_attachment_dir)
-                messagebox.showinfo("설정 저장", "설정이 저장되었습니다.")
+                
+                # [핵심 수정] 완료 메시지 박스가 가려지지 않도록 처리
+                self.attributes("-topmost", False)
+                messagebox.showinfo("설정 저장", "설정이 저장되었습니다.", parent=self)
+                # 확인 버튼을 누르면 어차피 창이 닫히므로 topmost 복구 불필요
+                
                 self.destroy()
                 
                 # 엑셀 경로 재로드 및 뷰 갱신
                 self.dm.load_config() 
                 self.refresh_callback()
             except Exception as e:
-                messagebox.showerror("오류", f"설정 저장 실패: {e}")
+                # 에러 메시지 박스 처리
+                self.attributes("-topmost", False)
+                messagebox.showerror("오류", f"설정 저장 실패: {e}", parent=self)
+                self.attributes("-topmost", True) # 에러 확인 후에는 다시 설정창 위로
