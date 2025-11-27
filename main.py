@@ -145,7 +145,7 @@ class COXProductionManager(BaseApp):
 
     # [신규] 대시보드 뷰 전환 함수
     def show_dashboard_view(self):
-        self.switch_view("🏠  대시보드", self.view_dashboard)
+        self.switch_view("🏠  대시 보드", self.view_dashboard)
 
     def show_table_view(self):
         self.switch_view("📊  테이블 뷰", self.view_table)

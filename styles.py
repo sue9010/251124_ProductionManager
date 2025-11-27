@@ -1,3 +1,5 @@
+import platform
+
 import customtkinter as ctk
 
 # ==========================================
@@ -20,9 +22,25 @@ COLORS = {
     "transparent": "transparent"
 }
 
-# [핵심 수정] 폰트 패밀리 이름을 변수로 분리
-# 여기에 "Pretendard"라고 적으면 모든 파일에 적용됩니다.
-FONT_FAMILY = "Pretendard" 
+# ==========================================
+# [Font System] 심플한 폰트 설정 (맑은 고딕 우선)
+# ==========================================
+
+def get_system_font():
+    """
+    복잡한 로직 없이 OS별 표준 한글 폰트를 반환합니다.
+    """
+    system_os = platform.system()
+    
+    if system_os == "Windows":
+        return "Malgun Gothic"  # 윈도우 표준
+    elif system_os == "Darwin": # macOS
+        return "Apple SD Gothic Neo"
+    else: # Linux 등
+        return "NanumGothic"
+
+# 폰트 결정
+FONT_FAMILY = get_system_font()
 
 FONTS = {
     "main": (FONT_FAMILY, 12),

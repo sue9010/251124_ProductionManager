@@ -54,7 +54,7 @@ class DashboardView(ctk.CTkFrame):
             self.cards_frame.grid_columnconfigure(i, weight=1)
 
         self.card_widgets = []
-        card_titles = ["진행 중", "생산 대기", "중지", "이번달 완료"]
+        card_titles = ["생산 중", "생산 대기", "중지", "이번달 완료"]
         card_colors = [COLORS["primary"], COLORS["warning"], COLORS["danger"], COLORS["success"]]
 
         for i, (title, color) in enumerate(zip(card_titles, card_colors)):
