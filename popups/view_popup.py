@@ -6,6 +6,7 @@ import customtkinter as ctk
 from styles import COLORS, FONTS
 
 from .base_popup import BasePopup
+from .serial_input_popup import SerialInputPopup  # [신규] SerialInputPopup 임포트
 
 
 class ViewPopup(BasePopup):
@@ -84,29 +85,59 @@ class ViewPopup(BasePopup):
             card = ctk.CTkFrame(scroll_frame, fg_color=COLORS["bg_medium"], corner_radius=6)
             card.pack(fill="x", pady=5, padx=5)
 
+            # 카드 내용을 담을 프레임 (좌측)
             content = ctk.CTkFrame(card, fg_color="transparent")
-            content.pack(fill="both", expand=True, padx=15, pady=10)
+            content.pack(side="left", fill="both", expand=True, padx=15, pady=10)
 
-            model_info = f"[{row.get('모델명')}] {row.get('상세')}"
+            model_name = row.get('모델명')
+            qty = row.get('수량')
+            model_info = f"[{model_name}] {row.get('상세')}"
             ctk.CTkLabel(content, text=model_info, font=FONTS["main_bold"]).pack(anchor="w")
 
-            details_frame = ctk.CTkFrame(content, fg_color="transparent")
-            details_frame.pack(fill="x", pady=(5, 0))
+            # 상세 정보 레이아웃
+            top_info_frame = ctk.CTkFrame(content, fg_color="transparent")
+            top_info_frame.pack(fill="x", pady=(5, 0))
             
-            infos = [
-                f"수량: {row.get('수량')}",
-                f"시리얼: {row.get('시리얼번호')}",
+            infos_top = [
+                f"수량: {qty}",
                 f"렌즈: {row.get('렌즈업체')}"
             ]
             
-            for info in infos:
+            for info in infos_top:
                 ctk.CTkLabel(
-                    details_frame, 
+                    top_info_frame, 
                     text=info, 
                     font=FONTS["main"], 
                     fg_color=COLORS["border"], 
                     corner_radius=4
                 ).pack(side="left", padx=(0, 10), ipadx=5)
+
+            serial_text = f"시리얼: {row.get('시리얼번호')}"
+            ctk.CTkLabel(
+                content, 
+                text=serial_text, 
+                font=FONTS["main"], 
+                fg_color=COLORS["border"], 
+                corner_radius=4,
+                wraplength=650,  # 버튼 공간 확보를 위해 길이 조정
+                justify="left",
+                anchor="w"
+            ).pack(fill="x", pady=(5, 0), ipadx=5)
+
+            # [신규] 우측 버튼 프레임
+            btn_frame = ctk.CTkFrame(card, fg_color="transparent")
+            btn_frame.pack(side="right", padx=10, pady=10)
+
+            ctk.CTkButton(
+                btn_frame, 
+                text="상세 보기", 
+                width=80, 
+                height=30,
+                fg_color=COLORS["bg_light"], 
+                hover_color=COLORS["bg_light_hover"],
+                text_color=COLORS["text"],
+                command=lambda m=model_name, q=qty: self.open_serial_popup(m, q)
+            ).pack()
 
         footer_frame = ctk.CTkFrame(parent, fg_color="transparent")
         footer_frame.pack(pady=20)
@@ -123,3 +154,21 @@ class ViewPopup(BasePopup):
                 self.refresh_callback()
             else:
                 messagebox.showerror("삭제 실패", msg, parent=self)
+
+    # [신규] 상세 보기 팝업 오픈 메서드
+    def open_serial_popup(self, model, qty):
+        # ViewPopup에서는 데이터 수정 후 UI 갱신이 필요 없으므로 빈 콜백 전달 (혹은 재조회 로직 추가 가능)
+        def on_save_callback(model_name, data_list):
+            # 팝업 닫고 새로고침 (데이터 변경 사항 반영을 위해)
+            self.dm.update_serial_list(self.req_no, model_name, data_list)
+            self.destroy()
+            # ViewPopup을 다시 열어 갱신된 데이터 보여주기 (선택 사항)
+            # 여기서는 단순히 저장만 하고 팝업 유지
+            
+            # 현재 팝업의 내용을 갱신하기 위해 창을 닫고 새로 여는 것이 가장 깔끔함
+            # 하지만 self.refresh_callback()은 메인 화면 갱신용이므로,
+            # 여기서는 단순히 안내 메시지 후 종료하거나, 현재 창을 다시 그리는 방법이 있음.
+            # 일단은 데이터 저장 로직만 수행하도록 함.
+            pass
+
+        SerialInputPopup(self, self.dm, self.req_no, model, qty, on_save_callback)

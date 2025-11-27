@@ -238,16 +238,23 @@ class DataManager:
     def get_filtered_data(self, status_filter_list=None, search_keyword="", sort_by=None, ascending=True):
         if self.df.empty: return self.df
         filtered_df = self.df.copy()
-        if status_filter_list is not None and len(status_filter_list) > 0:
-            filtered_df = filtered_df[filtered_df["Status"].astype(str).isin(status_filter_list)]
-        elif status_filter_list is not None and len(status_filter_list) == 0:
-            return filtered_df.iloc[0:0]
+        
+        # [수정] 검색어가 있을 경우 상태 필터를 무시하고 전체 데이터에서 검색하도록 변경
+        # 검색어가 없을 때만 상태 필터링을 적용합니다.
+        if not search_keyword:
+            if status_filter_list is not None and len(status_filter_list) > 0:
+                filtered_df = filtered_df[filtered_df["Status"].astype(str).isin(status_filter_list)]
+            elif status_filter_list is not None and len(status_filter_list) == 0:
+                return filtered_df.iloc[0:0]
+        
+        # 검색어 필터링
         if search_keyword:
             search_cols = [col for col in Config.SEARCH_TARGET_COLS if col in filtered_df.columns]
             if search_cols:
                 mask = pd.Series(False, index=filtered_df.index)
                 for col in search_cols: mask |= filtered_df[col].astype(str).str.contains(search_keyword, case=False, na=False)
                 filtered_df = filtered_df[mask]
+                
         if sort_by and sort_by in filtered_df.columns:
             if sort_by == "번호":
                 filtered_df["_sort_helper"] = pd.to_numeric(filtered_df[sort_by], errors='coerce')
@@ -284,9 +291,9 @@ class DataManager:
             
         return target_data.to_dict('records')
 
-    # [신규] 시리얼 데이터 저장 함수
+    # [신규] 시리얼 데이터 저장 함수 (수정됨)
     def update_serial_list(self, req_no, model_name, new_data_list):
-        """특정 요청 번호의 시리얼 데이터를 덮어쓰기"""
+        """특정 요청 번호의 시리얼 데이터를 덮어쓰기 및 Data 시트 동기화"""
         # 1. 기존 데이터 삭제 (해당 요청번호 & 모델명)
         if not self.serial_df.empty:
             mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
@@ -296,6 +303,34 @@ class DataManager:
         if new_data_list:
             new_rows_df = pd.DataFrame(new_data_list)
             self.serial_df = pd.concat([self.serial_df, new_rows_df], ignore_index=True)
+            
+        # [신규 로직] 3. Data 시트(self.df)의 '시리얼번호' 컬럼에 쉼표로 합쳐서 업데이트
+        # 현재 입력된 리스트에서 시리얼만 추출 (빈 값 제외)
+        serial_list = [
+            str(item.get("시리얼번호", "")).strip()
+            for item in new_data_list
+            if item.get("시리얼번호") and str(item.get("시리얼번호")).strip() != "" and str(item.get("시리얼번호")) != "-"
+        ]
+        
+        joined_serials = ", ".join(serial_list)
+
+        # [추가 로직] 4. Data 시트(self.df)의 '렌즈업체' 컬럼도 업데이트 (Unique 값만)
+        lens_list = [
+            str(item.get("렌즈업체", "")).strip()
+            for item in new_data_list
+            if item.get("렌즈업체") and str(item.get("렌즈업체")).strip() != "" and str(item.get("렌즈업체")) != "-"
+        ]
+        
+        # 중복 제거 및 정렬
+        unique_lenses = sorted(list(set(lens_list)))
+        joined_lenses = ", ".join(unique_lenses)
+        
+        # 메인 데이터프레임에서 해당 행 찾기 (번호 AND 모델명)
+        mask_main = (self.df["번호"].astype(str) == str(req_no)) & (self.df["모델명"] == model_name)
+        
+        if mask_main.any():
+            self.df.loc[mask_main, "시리얼번호"] = joined_serials
+            self.df.loc[mask_main, "렌즈업체"] = joined_lenses
             
         return True
 
