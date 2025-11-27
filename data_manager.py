@@ -16,7 +16,7 @@ class DataManager:
         self.df = pd.DataFrame()
         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) 
         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
-        self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS) # [신규] 메모 로그 DF
+        self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
         self.current_theme = "Dark"  
         self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
@@ -75,7 +75,6 @@ class DataManager:
                     else:
                         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
-                    # [신규] 메모 로그 시트 로드
                     if Config.SHEET_MEMO_LOG in xls.sheet_names:
                         self.memo_log_df = pd.read_excel(xls, Config.SHEET_MEMO_LOG)
                     else:
@@ -114,10 +113,15 @@ class DataManager:
 
         self.df = self.df.fillna('-')
         
+        # 메모 데이터프레임 전처리
         if self.memo_df.empty:
             self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
+        else:
+            # [수정] 기존 엑셀 파일에 '확인' 컬럼이 없을 경우 대비 (기본값 'N')
+            if "확인" not in self.memo_df.columns:
+                self.memo_df["확인"] = "N"
             
-        # [신규] 메모 로그 초기화
+        # 메모 로그 초기화
         if self.memo_log_df.empty:
             self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
 
@@ -131,7 +135,7 @@ class DataManager:
                 output_df.to_excel(writer, sheet_name=Config.SHEET_DATA, index=False)
                 self.log_df.to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
                 self.memo_df.to_excel(writer, sheet_name=Config.SHEET_MEMO, index=False)
-                self.memo_log_df.to_excel(writer, sheet_name=Config.SHEET_MEMO_LOG, index=False) # [신규]
+                self.memo_log_df.to_excel(writer, sheet_name=Config.SHEET_MEMO_LOG, index=False)
             
             self.load_data()
             return True, "저장되었습니다."
@@ -155,7 +159,6 @@ class DataManager:
         }
         self.log_df = pd.concat([self.log_df, pd.DataFrame([new_entry])], ignore_index=True)
 
-    # [신규] 메모 로그 추가 함수
     def _add_memo_log(self, action, req_no, content):
         try:
             user = getpass.getuser()
@@ -184,14 +187,29 @@ class DataManager:
             "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "작업자": user,
             "PC정보": pc_info,
-            "내용": content
+            "내용": content,
+            "확인": "N" # [수정] 기본값 N (미확인)
         }
         self.memo_df = pd.concat([self.memo_df, pd.DataFrame([new_memo])], ignore_index=True)
         
-        # [신규] 로그 기록 (추가)
+        # 로그 기록 (추가)
         self._add_memo_log("추가", req_no, content)
         
         return self.save_to_excel()
+
+    # [신규] 메모 확인 상태 토글 기능
+    def update_memo_check(self, req_no, timestamp, content, new_status):
+        """특정 메모의 확인 상태 변경"""
+        mask = (
+            (self.memo_df["번호"].astype(str) == str(req_no)) & 
+            (self.memo_df["일시"] == timestamp) & 
+            (self.memo_df["내용"] == content)
+        )
+        
+        if mask.any():
+            self.memo_df.loc[mask, "확인"] = new_status
+            return self.save_to_excel()
+        return False, "메모를 찾을 수 없습니다."
 
     def get_memos(self, req_no):
         if self.memo_df.empty:
@@ -207,7 +225,6 @@ class DataManager:
         return target_memos.to_dict('records')
 
     def delete_memo(self, req_no, timestamp, content):
-        """특정 메모 삭제 (첨부 파일 포함)"""
         mask = (
             (self.memo_df["번호"].astype(str) == str(req_no)) & 
             (self.memo_df["일시"] == timestamp) & 
@@ -215,7 +232,6 @@ class DataManager:
         )
         
         if mask.any():
-            # 첨부 파일 경로 파싱 및 삭제 시도
             if "[파일첨부]" in content and "(경로:" in content:
                 try:
                     start_idx = content.find("(경로:") + 5
@@ -234,14 +250,12 @@ class DataManager:
 
             self.memo_df = self.memo_df[~mask]
             
-            # [신규] 로그 기록 (삭제)
             self._add_memo_log("삭제", req_no, content)
             
             return self.save_to_excel()
         return False, "삭제할 메모를 찾을 수 없습니다."
 
     def save_attachment(self, source_path):
-        """파일을 설정된 첨부 파일 경로로 복사하고, 저장된 경로를 반환"""
         if not os.path.exists(source_path):
             return None, "원본 파일이 존재하지 않습니다."
             
@@ -261,6 +275,7 @@ class DataManager:
         except Exception as e:
             return None, str(e)
 
+    # ... (이하 동일) ...
     def get_status_list(self):
         if "Status" in self.df.columns:
             return sorted(self.df["Status"].astype(str).unique().tolist())

@@ -1,11 +1,10 @@
-# popups/base_popup.py
 import os
+import re
 from datetime import datetime
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
-# [수정] DnD 라이브러리 임포트 시도 (없으면 경고)
 try:
     from tkinterdnd2 import DND_FILES
     DND_AVAILABLE = True
@@ -13,7 +12,6 @@ except ImportError:
     DND_AVAILABLE = False
     print("Warning: tkinterdnd2 library not found. Drag and drop will not work.")
 
-# [수정] FONT_FAMILY 추가 임포트
 from styles import COLORS, FONT_FAMILY, FONTS
 
 
@@ -26,7 +24,6 @@ class BasePopup(ctk.CTkToplevel):
 
         self.title(title)
         
-        # geometry 문자열 파싱
         try:
             w_str, h_str = geometry.split('x')
             base_width = int(w_str)
@@ -34,47 +31,39 @@ class BasePopup(ctk.CTkToplevel):
         except:
             base_width, base_height = 800, 600
 
-        # 사이드바가 있으면 너비를 늘림
         SIDEBAR_WIDTH = 320
         total_width = base_width + SIDEBAR_WIDTH if req_no else base_width
 
         self.center_window(total_width, base_height)
         self.attributes("-topmost", True)
 
-        # 메인 컨테이너 (그리드 레이아웃)
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True)
 
         if req_no:
-            # 사이드바 모드: 2열 구조
-            self.main_container.grid_columnconfigure(0, weight=1) # 컨텐츠
-            self.main_container.grid_columnconfigure(1, weight=0, minsize=SIDEBAR_WIDTH) # 사이드바
+            self.main_container.grid_columnconfigure(0, weight=1) 
+            self.main_container.grid_columnconfigure(1, weight=0, minsize=SIDEBAR_WIDTH) 
             self.main_container.grid_rowconfigure(0, weight=1)
 
-            # 1. 컨텐츠 프레임 (자식 클래스들이 위젯을 넣을 곳)
             self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
             self.content_frame.grid(row=0, column=0, sticky="nsew")
 
-            # 2. 메모 사이드바 프레임
+            # [수정] fg_color에 문자열 "bg_medium"이 아닌 COLORS["bg_medium"] 값을 전달해야 함
             self.sidebar_frame = ctk.CTkFrame(self.main_container, fg_color=COLORS["bg_medium"], corner_radius=0, width=SIDEBAR_WIDTH)
             self.sidebar_frame.grid(row=0, column=1, sticky="nsew")
-            self.sidebar_frame.grid_propagate(False) # 크기 고정
+            self.sidebar_frame.grid_propagate(False)
 
             self._create_memo_sidebar()
         else:
-            # 일반 모드 (SettingsPopup 등)
             self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
             self.content_frame.pack(fill="both", expand=True)
 
-        # ESC 키로 창 닫기
         self.bind("<Escape>", self.close)
 
     def close(self, event=None):
-        """창을 닫습니다."""
         self.destroy()
 
     def center_window(self, width, height):
-        """화면 중앙에 윈도우를 배치하는 함수"""
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         x = (screen_width / 2) - (width / 2)
@@ -85,20 +74,16 @@ class BasePopup(ctk.CTkToplevel):
     # Memo Sidebar Logic
     # ----------------------------------------------------------------
     def _create_memo_sidebar(self):
-        # Header
         header = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent", height=50)
         header.pack(fill="x", padx=15, pady=(15, 10))
         ctk.CTkLabel(header, text="작업 메모", font=FONTS["header"], text_color=COLORS["text"]).pack(side="left")
 
-        # Memo List Area
         self.memo_scroll = ctk.CTkScrollableFrame(self.sidebar_frame, fg_color="transparent")
         self.memo_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        # Input Area
         input_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         input_frame.pack(fill="x", padx=15, pady=(0, 20), side="bottom")
         
-        # [신규] 안내 문구
         if DND_AVAILABLE:
             guide_text = "메시지를 입력하거나 파일을 드래그하세요."
         else:
@@ -109,10 +94,8 @@ class BasePopup(ctk.CTkToplevel):
         self.memo_entry = ctk.CTkTextbox(input_frame, height=60, font=FONTS["main"], fg_color=COLORS["bg_dark"], border_color=COLORS["border"], border_width=1)
         self.memo_entry.pack(fill="x", pady=(0, 5))
         
-        # Shift+Enter로 줄바꿈, Enter로 전송 (바인딩)
         self.memo_entry.bind("<Return>", self._handle_enter_key)
         
-        # [신규] 드래그 앤 드롭 바인딩
         if DND_AVAILABLE:
             try:
                 self.memo_entry.drop_target_register(DND_FILES)
@@ -126,41 +109,41 @@ class BasePopup(ctk.CTkToplevel):
         self._refresh_memo_list()
         
     def _on_drop_file(self, event):
-        """파일이 드롭되었을 때 처리"""
         files = event.data
         if not files: return
         
-        # Windows의 경우 중괄호({})로 경로가 감싸지는 경우가 있음
-        # 예: "{C:/Path/To/File.txt} C:/Another/File.jpg"
-        # 간단한 파싱 로직 (하나의 파일만 우선 처리)
-        file_path = files.strip()
-        if file_path.startswith('{') and file_path.endswith('}'):
-            file_path = file_path[1:-1]
-            
-        # 여러 파일이 들어올 수 있으나, 여기선 첫 번째 경로만 처리하거나 리스트로 분리
-        # (tkinterdnd2는 공백으로 구분된 파일 목록을 문자열로 줌)
+        paths = re.findall(r'\{.*?\}|\S+', files)
         
-        if os.path.exists(file_path):
-            # 파일 복사 및 저장
-            saved_path, error = self.dm.save_attachment(file_path)
-            if saved_path:
-                # 메모 입력창에 자동 입력
-                current_text = self.memo_entry.get("1.0", "end").strip()
-                new_text = f"[파일첨부] {os.path.basename(saved_path)}\n(경로: {saved_path})"
-                
-                if current_text:
-                    self.memo_entry.insert("end", "\n" + new_text)
+        success_count = 0
+        error_msg = ""
+
+        for file_path in paths:
+            if file_path.startswith('{') and file_path.endswith('}'):
+                file_path = file_path[1:-1]
+            
+            if os.path.exists(file_path):
+                saved_path, error = self.dm.save_attachment(file_path)
+                if saved_path:
+                    current_text = self.memo_entry.get("1.0", "end").strip()
+                    new_text = f"[파일첨부] {os.path.basename(saved_path)}\n(경로: {saved_path})"
+                    
+                    if current_text:
+                        self.memo_entry.insert("end", "\n" + new_text)
+                    else:
+                        self.memo_entry.insert("1.0", new_text)
+                    success_count += 1
                 else:
-                    self.memo_entry.insert("1.0", new_text)
-            else:
-                messagebox.showerror("파일 저장 실패", error, parent=self)
+                    error_msg += f"\n{os.path.basename(file_path)}: {error}"
+        
+        if error_msg:
+             messagebox.showerror("일부 파일 저장 실패", error_msg, parent=self)
 
     def _handle_enter_key(self, event):
-        if event.state & 0x0001: # Shift key pressed
-            return # 기본 줄바꿈 동작 허용
+        if event.state & 0x0001: 
+            return 
         else:
             self._add_memo()
-            return "break" # 기본 엔터 동작 방지
+            return "break" 
 
     def _add_memo(self):
         text = self.memo_entry.get("1.0", "end").strip()
@@ -175,7 +158,6 @@ class BasePopup(ctk.CTkToplevel):
             messagebox.showerror("오류", f"메모 저장 실패: {msg}", parent=self)
 
     def _refresh_memo_list(self):
-        # 기존 위젯 제거
         for widget in self.memo_scroll.winfo_children():
             widget.destroy()
 
@@ -192,41 +174,22 @@ class BasePopup(ctk.CTkToplevel):
         card = ctk.CTkFrame(self.memo_scroll, fg_color=COLORS["bg_dark"], corner_radius=6)
         card.pack(fill="x", pady=5, padx=5)
 
-        # Header Frame
+        # [Header] Date | User (PC)
         header_frame = ctk.CTkFrame(card, fg_color="transparent", height=20)
         header_frame.pack(fill="x", padx=10, pady=(8, 2))
 
-        # Header Text: Date | User (PC)
         header_text = f"{memo['일시']} | {memo['작업자']} ({memo['PC정보']})"
         ctk.CTkLabel(header_frame, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
 
-        # 삭제 버튼 (x)
-        btn_del = ctk.CTkButton(
-            header_frame, 
-            text="×", 
-            width=20, 
-            height=20, 
-            fg_color="transparent", 
-            hover_color=COLORS["danger"], 
-            text_color=COLORS["text_dim"], 
-            font=(FONT_FAMILY, 16, "bold"),
-            command=lambda m=memo: self._delete_memo_confirm(m)
-        )
-        btn_del.pack(side="right")
-
-        # Content
+        # [Content]
         content_text = memo['내용']
         
-        # [신규] 파일 첨부인 경우 클릭 시 파일 열기 기능 추가
-        # 간단하게 "[파일첨부]" 텍스트가 포함되어 있고 경로가 있으면 버튼화
         if "[파일첨부]" in content_text and "(경로:" in content_text:
-            # 텍스트 파싱 (단순화된 방식)
             try:
                 start_idx = content_text.find("(경로:") + 5
                 end_idx = content_text.find(")", start_idx)
                 file_path = content_text[start_idx:end_idx].strip()
                 
-                # 파일명만 표시
                 display_text = content_text.split('\n')[0] 
                 
                 btn_file = ctk.CTkButton(
@@ -236,19 +199,74 @@ class BasePopup(ctk.CTkToplevel):
                     hover_color=COLORS["bg_light"],
                     text_color=COLORS["primary"],
                     anchor="w",
-                    command=lambda p=file_path: self._open_pdf_file(p) # 기존 파일 열기 함수 재사용
+                    command=lambda p=file_path: self._open_pdf_file(p) 
                 )
-                btn_file.pack(fill="x", padx=10, pady=(0, 8))
+                btn_file.pack(fill="x", padx=10, pady=(0, 0))
             except:
-                # 파싱 실패 시 일반 텍스트로 표시
                 content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
-                content_lbl.pack(anchor="w", padx=10, pady=(0, 8))
+                content_lbl.pack(anchor="w", padx=10, pady=(0, 0))
         else:
             content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
-            content_lbl.pack(anchor="w", padx=10, pady=(0, 8))
+            content_lbl.pack(anchor="w", padx=10, pady=(0, 0))
+
+        # [Footer] Buttons (Right Aligned)
+        # [수정] 높이 문제 해결을 위해 height를 제거하거나 넉넉하게 줌
+        footer_frame = ctk.CTkFrame(card, fg_color="transparent")
+        footer_frame.pack(fill="x", padx=10, pady=(5, 8))
+
+        # [수정] 삭제 버튼 (x) - anchor="center" 추가
+        btn_del = ctk.CTkButton(
+            footer_frame, 
+            text="×", 
+            width=20, 
+            height=20, 
+            fg_color="transparent", 
+            hover_color=COLORS["danger"], 
+            text_color=COLORS["text_dim"], 
+            font=(FONT_FAMILY, 16, "bold"),
+            command=lambda m=memo: self._delete_memo_confirm(m)
+        )
+        btn_del.pack(side="right", padx=(5, 0), anchor="center")
+
+        # [수정] 저장된 '확인' 상태값 불러오기
+        is_checked = str(memo.get('확인', 'N')) == 'Y'
+        
+        # [수정] 확인 상태에 따라 텍스트와 색상 변경
+        check_text = "✓✓" if is_checked else "✓"
+        check_fg_color = COLORS["transparent"] if is_checked else "transparent"
+        check_text_color = COLORS["text_dim"] if is_checked else COLORS["text_dim"] # 확인됨일때 텍스트는 배경색(어두움), 미확인일때는 딤처리
+
+        # [수정] 확인 버튼 - anchor="center" 추가
+        btn_check = ctk.CTkButton(
+            footer_frame,
+            text=check_text,
+            width=20, # 텍스트 길이에 맞춰 너비 조정
+            height=20,
+            fg_color=check_fg_color,
+            hover_color=COLORS["bg_light_hover"] if not is_checked else COLORS["bg_light_hover"], # 이미 확인된건 호버시 약간 어둡게?
+            text_color=check_text_color,
+            font=(FONT_FAMILY, 16, "bold") # 폰트 사이즈 조정
+        )
+        # [수정] 토글 함수에 memo 객체 전달
+        btn_check.configure(command=lambda b=btn_check, m=memo: self._toggle_check(b, m))
+        btn_check.pack(side="right", anchor="center")
+
+    def _toggle_check(self, btn, memo):
+        """확인 버튼 토글 및 DB 저장 로직"""
+        current_status = str(memo.get('확인', 'N'))
+        new_status = 'N' if current_status == 'Y' else 'Y'
+        
+        # DataManager를 통해 엑셀 업데이트
+        success, msg = self.dm.update_memo_check(self.req_no, memo['일시'], memo['내용'], new_status)
+        
+        if success:
+            # 업데이트 성공 시 리스트 전체 리로딩 (데이터 동기화를 위해)
+            # 버튼 색상만 바꿀 수도 있지만, 확실한 동기화를 위해 새로고침 권장
+            self._refresh_memo_list()
+        else:
+            messagebox.showerror("오류", f"상태 변경 실패: {msg}", parent=self)
 
     def _delete_memo_confirm(self, memo):
-        """메모 삭제 확인 및 처리"""
         if messagebox.askyesno("메모 삭제", "선택한 메모를 삭제하시겠습니까?", parent=self):
             success, msg = self.dm.delete_memo(self.req_no, memo['일시'], memo['내용'])
             if success:
@@ -256,11 +274,7 @@ class BasePopup(ctk.CTkToplevel):
             else:
                 messagebox.showerror("오류", msg, parent=self)
 
-    # ----------------------------------------------------------------
-    # Common Helpers
-    # ----------------------------------------------------------------
     def _open_pdf_file(self, path):
-        """주어진 경로의 파일을 시스템 기본 프로그램으로 엽니다."""
         if not path or str(path).strip() == "-" or str(path).strip() == "":
             messagebox.showinfo("알림", "등록된 파일 경로가 없습니다.", parent=self)
             return
