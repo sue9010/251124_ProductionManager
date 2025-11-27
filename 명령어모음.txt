@@ -1,0 +1,3 @@
+폴더로 파일 생성
+pyinstaller --onedir --noconsole --icon=logo.ico main.py
+

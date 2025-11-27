@@ -122,6 +122,9 @@ class COXProductionManager(BaseApp):
         self.view_gantt = GanttView(self.content_frame, self.dm, self.pm)
 
     def switch_view(self, view_name, view_instance):
+        # [✅ 수정] 뷰를 전환하기 전에 테이블 뷰의 드롭다운이 열려있다면 닫습니다.
+        if hasattr(self, 'view_table') and self.view_table.is_dropdown_open:
+            self.view_table.close_dropdown()
         # 버튼 스타일 업데이트
         for text, btn in self.nav_buttons.items():
             if text == view_name:

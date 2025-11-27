@@ -36,6 +36,7 @@ class DataManager:
 
     def save_config(self, new_path=None, new_theme=None, new_attachment_dir=None):
         """config.json 파일 저장"""
+        # [수정] 인자값 반영
         if new_path:
             self.current_excel_path = new_path
         if new_theme:
@@ -43,6 +44,7 @@ class DataManager:
         if new_attachment_dir:
             self.attachment_dir = new_attachment_dir
             
+        # [수정] attachment_dir 포함하여 저장
         data = {
             "excel_path": self.current_excel_path,
             "theme": self.current_theme,
@@ -117,7 +119,6 @@ class DataManager:
         if self.memo_df.empty:
             self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
         else:
-            # [수정] 기존 엑셀 파일에 '확인' 컬럼이 없을 경우 대비 (기본값 'N')
             if "확인" not in self.memo_df.columns:
                 self.memo_df["확인"] = "N"
             
@@ -188,24 +189,18 @@ class DataManager:
             "작업자": user,
             "PC정보": pc_info,
             "내용": content,
-            "확인": "N" # [수정] 기본값 N (미확인)
+            "확인": "N"
         }
         self.memo_df = pd.concat([self.memo_df, pd.DataFrame([new_memo])], ignore_index=True)
-        
-        # 로그 기록 (추가)
         self._add_memo_log("추가", req_no, content)
-        
         return self.save_to_excel()
 
-    # [신규] 메모 확인 상태 토글 기능
     def update_memo_check(self, req_no, timestamp, content, new_status):
-        """특정 메모의 확인 상태 변경"""
         mask = (
             (self.memo_df["번호"].astype(str) == str(req_no)) & 
             (self.memo_df["일시"] == timestamp) & 
             (self.memo_df["내용"] == content)
         )
-        
         if mask.any():
             self.memo_df.loc[mask, "확인"] = new_status
             return self.save_to_excel()
@@ -214,23 +209,16 @@ class DataManager:
     def get_memos(self, req_no):
         if self.memo_df.empty:
             return []
-            
         mask = self.memo_df["번호"].astype(str) == str(req_no)
         target_memos = self.memo_df[mask].copy()
-        
         if target_memos.empty:
             return []
-            
         target_memos = target_memos.sort_values(by="일시", ascending=False)
         return target_memos.to_dict('records')
 
-    # [신규] 미확인 메모 개수 조회
     def get_unchecked_memo_count(self, req_no):
-        """특정 번호의 미확인('N') 상태인 메모 개수 반환"""
         if self.memo_df.empty:
             return 0
-            
-        # 번호가 일치하고, 확인 컬럼이 'N'인 행 필터링
         mask = (self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["확인"] == "N")
         return len(self.memo_df[mask])
 
@@ -240,16 +228,13 @@ class DataManager:
             (self.memo_df["일시"] == timestamp) & 
             (self.memo_df["내용"] == content)
         )
-        
         if mask.any():
             if "[파일첨부]" in content and "(경로:" in content:
                 try:
                     start_idx = content.find("(경로:") + 5
                     end_idx = content.rfind(")") 
-                    
                     if end_idx > start_idx:
                         file_path = content[start_idx:end_idx].strip()
-                        
                         if os.path.exists(file_path):
                             os.remove(file_path)
                             print(f"Deleted attachment: {file_path}")
@@ -259,33 +244,26 @@ class DataManager:
                     print(f"Failed to delete attachment: {e}")
 
             self.memo_df = self.memo_df[~mask]
-            
             self._add_memo_log("삭제", req_no, content)
-            
             return self.save_to_excel()
         return False, "삭제할 메모를 찾을 수 없습니다."
 
     def save_attachment(self, source_path):
         if not os.path.exists(source_path):
             return None, "원본 파일이 존재하지 않습니다."
-            
         try:
             if not os.path.exists(self.attachment_dir):
                 os.makedirs(self.attachment_dir)
-                
             file_name = os.path.basename(source_path)
             name, ext = os.path.splitext(file_name)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             new_file_name = f"{name}_{timestamp}{ext}"
-            
             dest_path = os.path.join(self.attachment_dir, new_file_name)
             shutil.copy2(source_path, dest_path)
-            
             return dest_path, None
         except Exception as e:
             return None, str(e)
 
-    # ... (이하 동일) ...
     def get_status_list(self):
         if "Status" in self.df.columns:
             return sorted(self.df["Status"].astype(str).unique().tolist())

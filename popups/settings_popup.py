@@ -1,4 +1,3 @@
-# popups/settings_popup.py
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -73,7 +72,7 @@ class SettingsPopup(BasePopup):
         ctk.set_appearance_mode(new_theme)
 
     def browse_excel(self):
-        # [핵심 수정] 파일 탐색기가 팝업 뒤로 숨지 않도록 일시적으로 '항상 위' 속성 해제
+        # 파일 탐색기가 팝업 뒤로 숨지 않도록 일시적으로 '항상 위' 속성 해제
         self.attributes("-topmost", False)
         
         file_path = filedialog.askopenfilename(
@@ -83,14 +82,14 @@ class SettingsPopup(BasePopup):
         
         # 탐색기가 닫히면 다시 '항상 위' 설정 복구
         self.attributes("-topmost", True)
-        self.lift() # 창을 다시 맨 앞으로
+        self.lift()
 
         if file_path:
             self.path_entry.delete(0, "end")
             self.path_entry.insert(0, file_path)
 
     def browse_folder(self):
-        # [핵심 수정] 폴더 탐색기도 동일하게 처리
+        # 폴더 탐색기도 동일하게 처리
         self.attributes("-topmost", False)
         
         folder_path = filedialog.askdirectory(parent=self)
@@ -109,21 +108,21 @@ class SettingsPopup(BasePopup):
         
         if new_path:
             try:
-                # 경로와 테마, 첨부 폴더 모두 저장
+                # [수정] 경로와 테마, 첨부 폴더 모두 저장 (3개 인자 전달)
                 self.dm.save_config(new_path, new_theme, new_attachment_dir)
                 
-                # [핵심 수정] 완료 메시지 박스가 가려지지 않도록 처리
                 self.attributes("-topmost", False)
                 messagebox.showinfo("설정 저장", "설정이 저장되었습니다.", parent=self)
-                # 확인 버튼을 누르면 어차피 창이 닫히므로 topmost 복구 불필요
                 
                 self.destroy()
                 
-                # 엑셀 경로 재로드 및 뷰 갱신
                 self.dm.load_config() 
                 self.refresh_callback()
             except Exception as e:
-                # 에러 메시지 박스 처리
                 self.attributes("-topmost", False)
                 messagebox.showerror("오류", f"설정 저장 실패: {e}", parent=self)
-                self.attributes("-topmost", True) # 에러 확인 후에는 다시 설정창 위로
+                self.attributes("-topmost", True)
+        else:
+            self.attributes("-topmost", False)
+            messagebox.showwarning("경고", "엑셀 파일 경로를 입력해주세요.", parent=self)
+            self.attributes("-topmost", True)
