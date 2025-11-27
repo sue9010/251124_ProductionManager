@@ -30,7 +30,7 @@ class Config:
     CONFIG_FILENAME = os.path.join(APP_DIR, "config.json")
     
     # 6. 애플리케이션 버전
-    APP_VERSION = "1.1.0"
+    APP_VERSION = "1.2.0"
     
     # ---------------------------------------------------------
     # [기타 설정]

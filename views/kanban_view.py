@@ -19,7 +19,7 @@ class KanbanView(ctk.CTkFrame):
             "생산 접수": {"color": COLORS["primary"], "bg": COLORS["bg_dark"]},
             "대기":     {"color": COLORS["warning"], "bg": COLORS["bg_dark"]},
             "생산중":   {"color": COLORS["success"], "bg": COLORS["bg_dark"]},
-            "작업 중지": {"color": COLORS["danger"],  "bg": COLORS["bg_dark"]},
+            "중지": {"color": COLORS["danger"],  "bg": COLORS["bg_dark"]},
             "완료":     {"color": COLORS["text_dim"], "bg": COLORS["bg_dark"]}
         }
         
@@ -100,8 +100,8 @@ class KanbanView(ctk.CTkFrame):
         
         for status in self.columns.keys():
             target_df = pd.DataFrame()
-            if status == "작업 중지":
-                target_df = df[status_series.isin(['Hold', '작업 중지', '중지'])].copy()
+            if status == "중지":
+                target_df = df[status_series.isin(['Hold','중지'])].copy()
             else:
                 target_df = df[status_series == status].copy()
             
@@ -239,7 +239,7 @@ class KanbanView(ctk.CTkFrame):
         elif to_status == "생산중":
             today = datetime.now().strftime("%Y-%m-%d")
             success, msg = self.dm.update_production_schedule(req_no, today)
-        elif to_status == "작업 중지":
+        elif to_status == "중지":
             success, msg = self.dm.update_status_to_hold(req_no)
         elif to_status == "대기":
             success, msg = self.dm.update_status_to_waiting(req_no, reason="칸반 보드 이동")

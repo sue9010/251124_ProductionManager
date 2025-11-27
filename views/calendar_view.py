@@ -72,11 +72,11 @@ class CalendarView(ctk.CTkFrame):
         self.sidebar_frame.grid(row=0, column=1, sticky="nsew")
         self.sidebar_frame.grid_propagate(False)
 
-        ctk.CTkLabel(self.sidebar_frame, text="⛔ 작업 중지 목록", font=FONTS["header"], text_color=COLORS["danger"]).pack(pady=(15, 5), padx=15, anchor="w")
+        ctk.CTkLabel(self.sidebar_frame, text="⛔ 중지 목록", font=FONTS["header"], text_color=COLORS["danger"]).pack(pady=(15, 5), padx=15, anchor="w")
         self.hold_scroll = ctk.CTkScrollableFrame(self.sidebar_frame, height=250, fg_color=COLORS["bg_medium"], corner_radius=6)
         self.hold_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        ctk.CTkLabel(self.sidebar_frame, text="⏳ 생산 대기 목록", font=FONTS["header"], text_color=COLORS["warning"]).pack(pady=(10, 5), padx=15, anchor="w")
+        ctk.CTkLabel(self.sidebar_frame, text="⏳ 대기 목록", font=FONTS["header"], text_color=COLORS["warning"]).pack(pady=(10, 5), padx=15, anchor="w")
         self.waiting_scroll = ctk.CTkScrollableFrame(self.sidebar_frame, height=250, fg_color=COLORS["bg_medium"], corner_radius=6)
         self.waiting_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 15))
 
@@ -95,7 +95,7 @@ class CalendarView(ctk.CTkFrame):
         if df.empty: return
 
         status_series = df['Status'].fillna('').astype(str).str.strip()
-        hold_df = df[status_series.isin(['Hold', '작업 중지', '중지'])].copy()
+        hold_df = df[status_series.isin(['Hold', '중지'])].copy()
         self._fill_sidebar_list(self.hold_scroll, hold_df)
         waiting_df = df[status_series == '대기'].copy()
         self._fill_sidebar_list(self.waiting_scroll, waiting_df)
@@ -151,7 +151,7 @@ class CalendarView(ctk.CTkFrame):
             s_date_str = start_date.strftime("%Y-%m-%d")
             e_date_str = end_date.strftime("%Y-%m-%d")
             status_series = df['Status'].fillna('').astype(str).str.strip()
-            mask = (df['출고예정일'] >= s_date_str) & (df['출고예정일'] <= e_date_str) & (~status_series.isin(['Hold', '작업 중지', '중지', '대기', '완료']))
+            mask = (df['출고예정일'] >= s_date_str) & (df['출고예정일'] <= e_date_str) & (~status_series.isin(['Hold', '중지', '대기', '완료']))
             df_filtered = df.loc[mask].copy()
             if not df_filtered.empty:
                 events = {date: group.to_dict('records') for date, group in df_filtered.groupby('출고예정일')}

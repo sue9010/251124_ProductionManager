@@ -22,7 +22,7 @@ class TableView(ctk.CTkFrame):
         
         # 필터 상태 (기본값)
         self.filter_states = {
-            "생산 접수": True, "대기": True, "생산중": True, "작업 중지": False, "완료": False
+            "생산 접수": True, "대기": False, "생산중": True, "중지": False, "완료": False
         }
         self.filter_check_vars = {}
 
@@ -57,7 +57,6 @@ class TableView(ctk.CTkFrame):
         self.filter_dropdown_btn.pack(side="left")
 
         # Dropdown Frame (메인 윈도우에 부착하기 위해 winfo_toplevel 사용)
-        # 주의: 초기에는 보이지 않게 생성만 해둠
         self.dropdown_frame = ctk.CTkFrame(self.winfo_toplevel(), width=FILTER_WIDTH, fg_color=COLORS["bg_medium"], border_width=1, border_color=COLORS["primary"], corner_radius=5)
         self.dropdown_frame.pack_propagate(False) # 크기 고정
         
@@ -136,11 +135,11 @@ class TableView(ctk.CTkFrame):
                 status = row['Status']
                 req_date = str(row['출고요청일'])
                 
-                # 모델명 앞에 오늘 할 일 표시
-                model_idx = Config.DISPLAY_COLUMNS.index("모델명")
                 row_tags = [status]
+                
+                # [수정] 번개 아이콘(⚡) 제거, 배경색 강조(today 태그)는 유지
                 if req_date == today_str:
-                    values[model_idx] = f"⚡ {values[model_idx]}"
+                    # values[model_idx] = f"⚡ {values[model_idx]}" # 이 줄을 제거하여 아이콘 삭제
                     row_tags.append("today")
                 
                 self.tree.insert("", "end", values=values, tags=tuple(row_tags))
@@ -149,15 +148,14 @@ class TableView(ctk.CTkFrame):
 
     def update_dashboard(self, df):
         """하단 대시보드 갱신"""
-        # 데이터프레임 유효성 및 컬럼 존재 여부 확인
         if df is None or df.empty or 'Status' not in df.columns:
             total, waiting, hold = 0, 0, 0
         else:
             total = len(df)
             waiting = len(df[df['Status'] == '대기'])
-            hold = len(df[df['Status'].isin(['Hold', '작업 중지', '중지'])])
+            hold = len(df[df['Status'].isin(['Hold', '중지', '중지'])])
             
-        status_text = f"  📦 전체 항목: {total}   |   ⏳ 생산 대기: {waiting}   |   ⛔ 작업 중지: {hold}"
+        status_text = f"  📦 전체 항목: {total}   |   ⏳ 생산 대기: {waiting}   |   ⛔ 중지: {hold}"
         self.dashboard_label.configure(text=status_text)
 
     # ===================================================
@@ -190,7 +188,7 @@ class TableView(ctk.CTkFrame):
         # 정확한 상태 파악을 위해 DM 조회
         status = self.dm.get_status_by_req_no(req_no)
         
-        if status in ["생산 접수", "대기", "작업 중지", "Hold", "중지"]:
+        if status in ["생산 접수", "대기","중지"]:
             self.pm.open_schedule_popup(req_no)
         elif status == "생산중":
             self.pm.open_complete_popup(req_no)
@@ -231,7 +229,6 @@ class TableView(ctk.CTkFrame):
             self.dropdown_frame.place_forget()
             self.is_dropdown_open = False
         else:
-            # 위치 계산 (self는 Frame이므로 toplevel 기준 상대 좌표 계산 필요)
             root_x = self.filter_dropdown_btn.winfo_rootx() - self.winfo_toplevel().winfo_rootx()
             root_y = self.filter_dropdown_btn.winfo_rooty() - self.winfo_toplevel().winfo_rooty() + self.filter_dropdown_btn.winfo_height() + 5
             
@@ -253,7 +250,6 @@ class TableView(ctk.CTkFrame):
         self.on_filter_change()
 
     def on_filter_change(self):
-        # 상태 동기화
         cnt = 0
         for status, var in self.filter_check_vars.items():
             is_checked = var.get()
@@ -297,9 +293,11 @@ class TableView(ctk.CTkFrame):
         
         # 태그별 색상
         self.tree.tag_configure("중지", background="#4a2626", foreground="#ffcccc")
-        self.tree.tag_configure("작업 중지", background="#4a2626", foreground="#ffcccc")
+        self.tree.tag_configure("중지", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("Hold", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("완료", foreground="#888888")
         self.tree.tag_configure("생산중", foreground="#4caf50")
         self.tree.tag_configure("대기", foreground="#ff9800")
+        
+        # 당일 건 강조 (배경색만 남김)
         self.tree.tag_configure("today", background="#2c3e50")

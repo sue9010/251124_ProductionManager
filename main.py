@@ -53,10 +53,10 @@ class COXProductionManager(ctk.CTk):
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
         self.sidebar_frame.grid_propagate(False)
 
-        logo = ctk.CTkLabel(self.sidebar_frame, text="🏭 COX PM", font=("Emoji", 24, "bold"), text_color=COLORS["primary"])
-        logo.pack(pady=(30, 10), padx=20, anchor="w")
+        logo = ctk.CTkLabel(self.sidebar_frame, text="Production Manager", font=("Emoji", 24, "bold"), text_color=COLORS["primary"])
+        logo.pack(pady=(30, 20), padx=20, anchor="w")
         
-        ctk.CTkLabel(self.sidebar_frame, text=f"v{Config.APP_VERSION}", font=FONTS["small"], text_color=COLORS["text_dim"]).pack(pady=(0, 30), padx=20, anchor="w")
+        # ctk.CTkLabel(self.sidebar_frame, text=f"v{Config.APP_VERSION}", font=FONTS["small"], text_color=COLORS["text_dim"]).pack(pady=(0, 30), padx=20, anchor="w")
 
         self.nav_buttons = {}
         btn_data = [
@@ -70,7 +70,7 @@ class COXProductionManager(ctk.CTk):
             btn = ctk.CTkButton(
                 self.sidebar_frame, text=text, command=cmd,
                 height=45, anchor="w", fg_color="transparent", 
-                text_color=COLORS["text_dim"], hover_color=COLORS["bg_medium"], font=FONTS["main_bold"]
+                text_color=COLORS["text_dim"], hover_color=COLORS["bg_medium"], font=FONTS["header"]
             )
             btn.pack(fill="x", padx=10, pady=5)
             self.nav_buttons[text] = btn
