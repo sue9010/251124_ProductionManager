@@ -387,7 +387,7 @@ class DashboardView(ctk.CTkFrame):
                 content = content[:15] + "..."
 
             text = f"[{time_str}] {user}: {content}"
-            icon = "📝" if action == "추가" else "🗑️"
+            icon = "[추가]" if action == "추가" else "[삭제]"
 
             ctk.CTkLabel(
                 card,
@@ -420,4 +420,3 @@ class DashboardView(ctk.CTkFrame):
                 font=(FONT_FAMILY, 11),
                 text_color=COLORS["text_dim"],
             ).pack(anchor="w", padx=10, pady=(0, 5))
-            
