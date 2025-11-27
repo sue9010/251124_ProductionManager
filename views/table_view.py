@@ -5,7 +5,8 @@ from tkinter import messagebox, ttk
 import customtkinter as ctk
 
 from config import Config
-from styles import COLORS, FONTS
+# [수정] get_color_str 도우미 함수 임포트
+from styles import COLORS, FONTS, get_color_str
 
 
 class TableView(ctk.CTkFrame):
@@ -27,6 +28,7 @@ class TableView(ctk.CTkFrame):
         self.filter_check_vars = {}
 
         self.create_widgets()
+        # [수정] 초기 스타일 적용
         self.style_treeview()
         
         # 이벤트 바인딩
@@ -114,6 +116,9 @@ class TableView(ctk.CTkFrame):
     # ===================================================
     def refresh_data(self):
         """현재 필터/검색 조건으로 데이터 다시 불러오기"""
+        # [수정] 테마가 변경되었을 수 있으므로 Treeview 스타일 재적용
+        self.style_treeview()
+
         selected_statuses = [s for s, active in self.filter_states.items() if active]
         keyword = self.search_entry.get().strip()
         
@@ -137,9 +142,7 @@ class TableView(ctk.CTkFrame):
                 
                 row_tags = [status]
                 
-                # [수정] 번개 아이콘(⚡) 제거, 배경색 강조(today 태그)는 유지
                 if req_date == today_str:
-                    # values[model_idx] = f"⚡ {values[model_idx]}" # 이 줄을 제거하여 아이콘 삭제
                     row_tags.append("today")
                 
                 self.tree.insert("", "end", values=values, tags=tuple(row_tags))
@@ -274,30 +277,47 @@ class TableView(ctk.CTkFrame):
     # Styling
     # ===================================================
     def style_treeview(self):
+        """
+        [수정] ttk 위젯은 튜플 색상(("Light", "Dark"))을 인식하지 못하므로
+        get_color_str()을 사용하여 현재 모드에 맞는 단일 색상 코드를 가져와서 적용합니다.
+        """
         style = ttk.Style()
         style.theme_use("default")
         
-        bg_color = COLORS["bg_dark"]
-        header_bg = "#3a3a3a"
+        # 현재 모드에 맞는 색상 가져오기
+        bg_color = get_color_str("bg_dark")
+        fg_color = get_color_str("text")
+        header_bg = "#3a3a3a" if ctk.get_appearance_mode() == "Dark" else "#DDDDDD"
+        header_fg = get_color_str("primary")
+        selected_bg = get_color_str("primary_hover")
         
         style.configure(
-            "Treeview", background=bg_color, foreground="#eeeeee", 
-            fieldbackground=bg_color, rowheight=38, font=("Malgun Gothic", 11), borderwidth=0
+            "Treeview", 
+            background=bg_color, 
+            foreground=fg_color, 
+            fieldbackground=bg_color, 
+            rowheight=38, 
+            font=("Malgun Gothic", 11), 
+            borderwidth=0
         )
         style.configure(
-            "Treeview.Heading", background=header_bg, foreground=COLORS["primary"], 
-            font=("Malgun Gothic", 12, "bold"), relief="flat", padding=(0, 8)
+            "Treeview.Heading", 
+            background=header_bg, 
+            foreground=header_fg, 
+            font=("Malgun Gothic", 12, "bold"), 
+            relief="flat", 
+            padding=(0, 8)
         )
-        style.map("Treeview.Heading", background=[('active', "#444444")])
-        style.map("Treeview", background=[('selected', COLORS["primary_hover"])])
+        style.map("Treeview.Heading", background=[('active', "#444444" if ctk.get_appearance_mode() == "Dark" else "#BBBBBB")])
+        style.map("Treeview", background=[('selected', selected_bg)])
         
-        # 태그별 색상
-        self.tree.tag_configure("중지", background="#4a2626", foreground="#ffcccc")
+        # 태그별 색상 (배경색은 고정)
         self.tree.tag_configure("중지", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("Hold", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("완료", foreground="#888888")
         self.tree.tag_configure("생산중", foreground="#4caf50")
         self.tree.tag_configure("대기", foreground="#ff9800")
         
-        # 당일 건 강조 (배경색만 남김)
-        self.tree.tag_configure("today", background="#2c3e50")
+        # 당일 건 강조 (배경색)
+        today_bg = "#2c3e50" if ctk.get_appearance_mode() == "Dark" else "#D4E6F1"
+        self.tree.tag_configure("today", background=today_bg)

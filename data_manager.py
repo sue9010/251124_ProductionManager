@@ -15,6 +15,7 @@ class DataManager:
         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) # 로그 데이터프레임
         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS) # [신규] 메모 데이터프레임
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
+        self.current_theme = "Dark"  # [신규] 기본 테마 설정
         self.load_config()
 
     def load_config(self):
@@ -24,14 +25,27 @@ class DataManager:
                 with open(Config.CONFIG_FILENAME, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.current_excel_path = data.get("excel_path", Config.DEFAULT_EXCEL_PATH)
+                    self.current_theme = data.get("theme", "Dark") # [신규] 테마 로드
             except Exception as e:
                 print(f"설정 로드 실패: {e}")
 
-    def save_config(self, new_path):
+    def save_config(self, new_path=None, new_theme=None):
         """config.json 파일 저장"""
-        self.current_excel_path = new_path
-        with open(Config.CONFIG_FILENAME, "w", encoding="utf-8") as f:
-            json.dump({"excel_path": new_path}, f, ensure_ascii=False, indent=4)
+        if new_path:
+            self.current_excel_path = new_path
+        if new_theme:
+            self.current_theme = new_theme
+            
+        data = {
+            "excel_path": self.current_excel_path,
+            "theme": self.current_theme # [신규] 테마 저장
+        }
+        
+        try:
+            with open(Config.CONFIG_FILENAME, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"설정 저장 실패: {e}")
 
     def load_data(self):
         """엑셀 파일 로드"""
@@ -93,8 +107,6 @@ class DataManager:
         # 메모 데이터프레임 전처리
         if self.memo_df.empty:
             self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
-        
-        # 날짜 포맷팅 등 필요시 추가
 
     def save_to_excel(self):
         """데이터, 로그, 메모를 엑셀 파일에 저장"""
@@ -284,9 +296,5 @@ class DataManager:
             details = f"번호[{req_no}] 데이터 삭제"
             self._add_log("데이터 삭제", details)
             self.df = self.df[~mask]
-            
-            # 관련된 메모도 삭제? (선택사항, 일단 유지하거나 함께 삭제)
-            # 여기서는 메모는 로그성으로 남겨두기로 함
-            
             return self.save_to_excel()
         return False, "삭제할 데이터를 찾을 수 없습니다."

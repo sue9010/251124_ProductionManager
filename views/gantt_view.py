@@ -11,7 +11,8 @@ import pandas as pd
 from matplotlib import font_manager, rc
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from styles import COLORS, FONTS
+# [수정] get_color_str 추가 임포트 (색상 변환용)
+from styles import COLORS, FONTS, get_color_str
 
 
 class GanttView(ctk.CTkFrame):
@@ -136,8 +137,9 @@ class GanttView(ctk.CTkFrame):
         for w in self.chart_content.winfo_children(): w.destroy()
 
         # --- 스타일 설정 ---
-        bg_color = COLORS["bg_dark"]
-        text_color = COLORS["text"]
+        # [수정] Matplotlib은 튜플 색상을 이해하지 못하므로 get_color_str()을 통해 단일 색상 문자열로 변환
+        bg_color = get_color_str("bg_dark")
+        text_color = get_color_str("text")
         
         # 고정된 항목 높이 기반 Figure 크기 계산
         ITEM_HEIGHT_INCH = 0.5
@@ -156,13 +158,15 @@ class GanttView(ctk.CTkFrame):
         y_labels = df['label'].tolist()
         start_dates = mdates.date2num(df['start_date'])
         durations = df['duration'].tolist()
-        color = COLORS["success"]
+        
+        # [수정] 색상 변환
+        color = get_color_str("success")
         
         # Y축 위치 (0부터 시작)
         y_pos = range(len(y_labels))
         
         # --- 막대 그리기 (Barh) ---
-        ax.barh(y_pos, durations, left=start_dates, height=0.4, align='center', color=color, edgecolor=COLORS["bg_dark"])
+        ax.barh(y_pos, durations, left=start_dates, height=0.4, align='center', color=color, edgecolor=bg_color)
         
         # --- X축 눈금 간격 동적 계산 ---
         min_date = df['start_date'].min()
@@ -187,8 +191,11 @@ class GanttView(ctk.CTkFrame):
         ax.set_ylim(-0.5, display_count - 0.5)
 
         # 그리드 및 테두리
-        ax.grid(True, axis='x', linestyle='--', alpha=0.3, color=COLORS["text_dim"])
-        ax.spines['bottom'].set_color(COLORS["text_dim"])
+        # [수정] 그리드 색상 변환
+        grid_color = get_color_str("text_dim")
+        
+        ax.grid(True, axis='x', linestyle='--', alpha=0.3, color=grid_color)
+        ax.spines['bottom'].set_color(grid_color)
         ax.spines['top'].set_color(bg_color)
         ax.spines['left'].set_color(bg_color)
         ax.spines['right'].set_color(bg_color)

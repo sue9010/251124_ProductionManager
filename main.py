@@ -18,17 +18,21 @@ class COXProductionManager(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # 1. 기본 설정
+        # 1. 모듈 초기화 (설정을 먼저 불러와야 함)
+        self.dm = DataManager()
+        
+        # 2. 기본 설정 및 테마 적용
         self.title(f"COX Production Manager - v{Config.APP_VERSION}")
         self.geometry("1650x900")
-        ctk.set_appearance_mode("Dark")
+        
+        # [핵심 수정] 저장된 테마 불러와서 적용
+        ctk.set_appearance_mode(self.dm.current_theme)
         ctk.set_default_color_theme("dark-blue")
         
-        # [핵심 수정] 종료 시 호출할 함수 연결
+        # 종료 시 호출할 함수 연결
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # 2. 모듈 초기화
-        self.dm = DataManager()
+        # 팝업 매니저 초기화
         self.pm = PopupManager(self, self.dm, self.refresh_current_view)
 
         self.current_view = None
