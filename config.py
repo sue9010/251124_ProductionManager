@@ -58,6 +58,7 @@ class Config:
     SHEET_DATA = "Data"
     SHEET_LOG = "Log"
     SHEET_MEMO = "Memos"
+    SHEET_MEMO_LOG = "Memo Log" # [신규] 메모 로그 시트
 
     # 엑셀 헤더 정의 (A열 ~ P열)
     COLUMNS = [
@@ -72,6 +73,9 @@ class Config:
 
     # 메모 시트 헤더 정의
     MEMO_COLUMNS = ["번호", "일시", "작업자", "PC정보", "내용"]
+    
+    # [신규] 메모 로그 시트 헤더 정의
+    MEMO_LOG_COLUMNS = ["일시", "작업자", "구분", "요청번호", "내용"]
 
     # 화면에 보여줄 컬럼
     DISPLAY_COLUMNS = [

@@ -2,7 +2,7 @@ import getpass
 import json
 import os
 import platform
-import re  # [신규] 정규식 사용
+import re
 import shutil
 from datetime import datetime
 
@@ -16,6 +16,7 @@ class DataManager:
         self.df = pd.DataFrame()
         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) 
         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
+        self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS) # [신규] 메모 로그 DF
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
         self.current_theme = "Dark"  
         self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
@@ -74,6 +75,12 @@ class DataManager:
                     else:
                         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
+                    # [신규] 메모 로그 시트 로드
+                    if Config.SHEET_MEMO_LOG in xls.sheet_names:
+                        self.memo_log_df = pd.read_excel(xls, Config.SHEET_MEMO_LOG)
+                    else:
+                        self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
+
                 current_cols_len = len(self.df.columns)
                 config_cols_len = len(Config.COLUMNS)
 
@@ -109,6 +116,10 @@ class DataManager:
         
         if self.memo_df.empty:
             self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
+            
+        # [신규] 메모 로그 초기화
+        if self.memo_log_df.empty:
+            self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
 
     def save_to_excel(self):
         """데이터, 로그, 메모를 엑셀 파일에 저장"""
@@ -120,6 +131,7 @@ class DataManager:
                 output_df.to_excel(writer, sheet_name=Config.SHEET_DATA, index=False)
                 self.log_df.to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
                 self.memo_df.to_excel(writer, sheet_name=Config.SHEET_MEMO, index=False)
+                self.memo_log_df.to_excel(writer, sheet_name=Config.SHEET_MEMO_LOG, index=False) # [신규]
             
             self.load_data()
             return True, "저장되었습니다."
@@ -143,6 +155,22 @@ class DataManager:
         }
         self.log_df = pd.concat([self.log_df, pd.DataFrame([new_entry])], ignore_index=True)
 
+    # [신규] 메모 로그 추가 함수
+    def _add_memo_log(self, action, req_no, content):
+        try:
+            user = getpass.getuser()
+        except:
+            user = "Unknown"
+
+        new_entry = {
+            "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "작업자": user,
+            "구분": action,
+            "요청번호": str(req_no),
+            "내용": content
+        }
+        self.memo_log_df = pd.concat([self.memo_log_df, pd.DataFrame([new_entry])], ignore_index=True)
+
     def add_memo(self, req_no, content):
         try:
             user = getpass.getuser()
@@ -159,6 +187,10 @@ class DataManager:
             "내용": content
         }
         self.memo_df = pd.concat([self.memo_df, pd.DataFrame([new_memo])], ignore_index=True)
+        
+        # [신규] 로그 기록 (추가)
+        self._add_memo_log("추가", req_no, content)
+        
         return self.save_to_excel()
 
     def get_memos(self, req_no):
@@ -174,7 +206,6 @@ class DataManager:
         target_memos = target_memos.sort_values(by="일시", ascending=False)
         return target_memos.to_dict('records')
 
-    # [핵심 수정] 메모 삭제 시 실제 첨부 파일도 함께 삭제하도록 로직 개선
     def delete_memo(self, req_no, timestamp, content):
         """특정 메모 삭제 (첨부 파일 포함)"""
         mask = (
@@ -188,7 +219,6 @@ class DataManager:
             if "[파일첨부]" in content and "(경로:" in content:
                 try:
                     start_idx = content.find("(경로:") + 5
-                    # [수정] rfind를 사용하여 파일명에 괄호()가 있어도 마지막 닫는 괄호를 정확히 찾음
                     end_idx = content.rfind(")") 
                     
                     if end_idx > start_idx:
@@ -203,6 +233,10 @@ class DataManager:
                     print(f"Failed to delete attachment: {e}")
 
             self.memo_df = self.memo_df[~mask]
+            
+            # [신규] 로그 기록 (삭제)
+            self._add_memo_log("삭제", req_no, content)
+            
             return self.save_to_excel()
         return False, "삭제할 메모를 찾을 수 없습니다."
 
