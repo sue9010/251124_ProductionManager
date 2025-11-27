@@ -32,7 +32,7 @@ class TableView(ctk.CTkFrame):
         self.refresh_data()
 
     def create_widgets(self):
-        self.toolbar_wrapper = ctk.CTkFrame(self, fg_color=COLORS["bg_dark"], height=60)
+        self.toolbar_wrapper = ctk.CTkFrame(self, fg_color="transparent", height=60)
         self.toolbar_wrapper.pack(side="top", fill="x", padx=20, pady=(20, 10))
 
         view_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
