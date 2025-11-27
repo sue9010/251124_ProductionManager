@@ -2,6 +2,8 @@ import getpass
 import json
 import os
 import platform
+import re  # [신규] 정규식 사용
+import shutil
 from datetime import datetime
 
 import pandas as pd
@@ -12,10 +14,11 @@ from config import Config
 class DataManager:
     def __init__(self):
         self.df = pd.DataFrame()
-        self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) # 로그 데이터프레임
-        self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS) # [신규] 메모 데이터프레임
+        self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) 
+        self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
-        self.current_theme = "Dark"  # [신규] 기본 테마 설정
+        self.current_theme = "Dark"  
+        self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
         self.load_config()
 
     def load_config(self):
@@ -25,20 +28,24 @@ class DataManager:
                 with open(Config.CONFIG_FILENAME, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.current_excel_path = data.get("excel_path", Config.DEFAULT_EXCEL_PATH)
-                    self.current_theme = data.get("theme", "Dark") # [신규] 테마 로드
+                    self.current_theme = data.get("theme", "Dark") 
+                    self.attachment_dir = data.get("attachment_dir", Config.DEFAULT_ATTACHMENT_DIR)
             except Exception as e:
                 print(f"설정 로드 실패: {e}")
 
-    def save_config(self, new_path=None, new_theme=None):
+    def save_config(self, new_path=None, new_theme=None, new_attachment_dir=None):
         """config.json 파일 저장"""
         if new_path:
             self.current_excel_path = new_path
         if new_theme:
             self.current_theme = new_theme
+        if new_attachment_dir:
+            self.attachment_dir = new_attachment_dir
             
         data = {
             "excel_path": self.current_excel_path,
-            "theme": self.current_theme # [신규] 테마 저장
+            "theme": self.current_theme,
+            "attachment_dir": self.attachment_dir 
         }
         
         try:
@@ -52,25 +59,21 @@ class DataManager:
         if os.path.exists(self.current_excel_path):
             try:
                 with pd.ExcelFile(self.current_excel_path) as xls:
-                    # 1. 생산 데이터 시트 로드
                     if Config.SHEET_DATA in xls.sheet_names:
                         self.df = pd.read_excel(xls, Config.SHEET_DATA)
                     else:
                         self.df = pd.read_excel(xls, 0)
 
-                    # 2. 로그 시트 로드
                     if Config.SHEET_LOG in xls.sheet_names:
                         self.log_df = pd.read_excel(xls, Config.SHEET_LOG)
                     else:
                         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS)
                         
-                    # 3. [신규] 메모 시트 로드
                     if Config.SHEET_MEMO in xls.sheet_names:
                         self.memo_df = pd.read_excel(xls, Config.SHEET_MEMO)
                     else:
                         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
-                # 컬럼 매핑 보정
                 current_cols_len = len(self.df.columns)
                 config_cols_len = len(Config.COLUMNS)
 
@@ -104,7 +107,6 @@ class DataManager:
 
         self.df = self.df.fillna('-')
         
-        # 메모 데이터프레임 전처리
         if self.memo_df.empty:
             self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
@@ -127,9 +129,6 @@ class DataManager:
         except Exception as e:
             return False, f"저장 중 오류 발생: {e}"
 
-    # -----------------------------------------------------
-    # [Logging System]
-    # -----------------------------------------------------
     def _add_log(self, action, details):
         try:
             user = getpass.getuser()
@@ -144,11 +143,7 @@ class DataManager:
         }
         self.log_df = pd.concat([self.log_df, pd.DataFrame([new_entry])], ignore_index=True)
 
-    # -----------------------------------------------------
-    # [Memo System] (신규)
-    # -----------------------------------------------------
     def add_memo(self, req_no, content):
-        """특정 번호에 대한 메모 추가"""
         try:
             user = getpass.getuser()
             pc_info = platform.node()
@@ -167,7 +162,6 @@ class DataManager:
         return self.save_to_excel()
 
     def get_memos(self, req_no):
-        """특정 번호의 메모 목록 조회 (최신순 정렬)"""
         if self.memo_df.empty:
             return []
             
@@ -177,12 +171,12 @@ class DataManager:
         if target_memos.empty:
             return []
             
-        # 최신순 정렬 (일시 기준 내림차순)
         target_memos = target_memos.sort_values(by="일시", ascending=False)
         return target_memos.to_dict('records')
 
+    # [핵심 수정] 메모 삭제 시 실제 첨부 파일도 함께 삭제하도록 로직 개선
     def delete_memo(self, req_no, timestamp, content):
-        """특정 메모 삭제"""
+        """특정 메모 삭제 (첨부 파일 포함)"""
         mask = (
             (self.memo_df["번호"].astype(str) == str(req_no)) & 
             (self.memo_df["일시"] == timestamp) & 
@@ -190,13 +184,49 @@ class DataManager:
         )
         
         if mask.any():
+            # 첨부 파일 경로 파싱 및 삭제 시도
+            if "[파일첨부]" in content and "(경로:" in content:
+                try:
+                    start_idx = content.find("(경로:") + 5
+                    # [수정] rfind를 사용하여 파일명에 괄호()가 있어도 마지막 닫는 괄호를 정확히 찾음
+                    end_idx = content.rfind(")") 
+                    
+                    if end_idx > start_idx:
+                        file_path = content[start_idx:end_idx].strip()
+                        
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                            print(f"Deleted attachment: {file_path}")
+                        else:
+                            print(f"File not found: {file_path}")
+                except Exception as e:
+                    print(f"Failed to delete attachment: {e}")
+
             self.memo_df = self.memo_df[~mask]
             return self.save_to_excel()
         return False, "삭제할 메모를 찾을 수 없습니다."
 
-    # -----------------------------------------------------
-    # Business Logic
-    # -----------------------------------------------------
+    def save_attachment(self, source_path):
+        """파일을 설정된 첨부 파일 경로로 복사하고, 저장된 경로를 반환"""
+        if not os.path.exists(source_path):
+            return None, "원본 파일이 존재하지 않습니다."
+            
+        try:
+            if not os.path.exists(self.attachment_dir):
+                os.makedirs(self.attachment_dir)
+                
+            file_name = os.path.basename(source_path)
+            name, ext = os.path.splitext(file_name)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            new_file_name = f"{name}_{timestamp}{ext}"
+            
+            dest_path = os.path.join(self.attachment_dir, new_file_name)
+            shutil.copy2(source_path, dest_path)
+            
+            return dest_path, None
+        except Exception as e:
+            return None, str(e)
+
     def get_status_list(self):
         if "Status" in self.df.columns:
             return sorted(self.df["Status"].astype(str).unique().tolist())
@@ -237,9 +267,6 @@ class DataManager:
 
         return filtered_df
 
-    # -----------------------------------------------------
-    # Update Functions
-    # -----------------------------------------------------
     def update_production_schedule(self, req_no, date_str):
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():

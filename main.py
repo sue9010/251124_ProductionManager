@@ -3,6 +3,14 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
+# [신규] 드래그 앤 드롭 라이브러리 임포트
+try:
+    from tkinterdnd2 import TkinterDnD
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+    print("⚠️ tkinterdnd2 라이브러리가 설치되지 않았습니다. 드래그 앤 드롭 기능이 제한됩니다.")
+
 from config import Config
 from data_manager import DataManager
 from popup_manager import PopupManager
@@ -10,11 +18,20 @@ from styles import COLORS, FONTS
 from views.calendar_view import CalendarView
 from views.gantt_view import GanttView
 from views.kanban_view import KanbanView
-# views 패키지에서 뷰 가져오기
 from views.table_view import TableView
 
+# [핵심 수정] TkinterDnD.DnDWrapper 상속 추가
+# 이렇게 해야 메인 윈도우가 드래그 앤 드롭 이벤트를 수신할 준비를 합니다.
+if DND_AVAILABLE:
+    class BaseApp(ctk.CTk, TkinterDnD.DnDWrapper):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.TkdndVersion = TkinterDnD._require(self)
+else:
+    class BaseApp(ctk.CTk):
+        pass
 
-class COXProductionManager(ctk.CTk):
+class COXProductionManager(BaseApp):
     def __init__(self):
         super().__init__()
 
@@ -25,7 +42,7 @@ class COXProductionManager(ctk.CTk):
         self.title(f"COX Production Manager - v{Config.APP_VERSION}")
         self.geometry("1650x900")
         
-        # [핵심 수정] 저장된 테마 불러와서 적용
+        # 저장된 테마 불러와서 적용
         ctk.set_appearance_mode(self.dm.current_theme)
         ctk.set_default_color_theme("dark-blue")
         
@@ -60,8 +77,6 @@ class COXProductionManager(ctk.CTk):
         logo = ctk.CTkLabel(self.sidebar_frame, text="Production Manager", font=("Emoji", 24, "bold"), text_color=COLORS["primary"])
         logo.pack(pady=(30, 20), padx=20, anchor="w")
         
-        # ctk.CTkLabel(self.sidebar_frame, text=f"v{Config.APP_VERSION}", font=FONTS["small"], text_color=COLORS["text_dim"]).pack(pady=(0, 30), padx=20, anchor="w")
-
         self.nav_buttons = {}
         btn_data = [
             ("📊  테이블 뷰", self.show_table_view),
@@ -159,9 +174,7 @@ class COXProductionManager(ctk.CTk):
                 if not in_dd and not in_btn:
                     self.view_table.close_dropdown()
 
-    # [핵심 수정] 종료 처리 핸들러
     def on_closing(self):
-        # 앱 종료 시 필요한 정리 작업을 수행하고 윈도우를 닫습니다.
         self.quit()    # 메인루프 중단
         self.destroy() # 위젯 파괴
 

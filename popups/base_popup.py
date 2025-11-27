@@ -5,6 +5,14 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
+# [수정] DnD 라이브러리 임포트 시도 (없으면 경고)
+try:
+    from tkinterdnd2 import DND_FILES
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+    print("Warning: tkinterdnd2 library not found. Drag and drop will not work.")
+
 # [수정] FONT_FAMILY 추가 임포트
 from styles import COLORS, FONT_FAMILY, FONTS
 
@@ -89,17 +97,63 @@ class BasePopup(ctk.CTkToplevel):
         # Input Area
         input_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         input_frame.pack(fill="x", padx=15, pady=(0, 20), side="bottom")
+        
+        # [신규] 안내 문구
+        if DND_AVAILABLE:
+            guide_text = "메시지를 입력하거나 파일을 드래그하세요."
+        else:
+            guide_text = "메시지를 입력하세요."
+            
+        ctk.CTkLabel(input_frame, text=guide_text, font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(anchor="w", padx=2, pady=(0,2))
 
         self.memo_entry = ctk.CTkTextbox(input_frame, height=60, font=FONTS["main"], fg_color=COLORS["bg_dark"], border_color=COLORS["border"], border_width=1)
         self.memo_entry.pack(fill="x", pady=(0, 5))
         
         # Shift+Enter로 줄바꿈, Enter로 전송 (바인딩)
         self.memo_entry.bind("<Return>", self._handle_enter_key)
+        
+        # [신규] 드래그 앤 드롭 바인딩
+        if DND_AVAILABLE:
+            try:
+                self.memo_entry.drop_target_register(DND_FILES)
+                self.memo_entry.dnd_bind('<<Drop>>', self._on_drop_file)
+            except Exception as e:
+                print(f"DnD bind error: {e}")
 
         btn_add = ctk.CTkButton(input_frame, text="메모 등록", height=30, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], command=self._add_memo)
         btn_add.pack(fill="x")
 
         self._refresh_memo_list()
+        
+    def _on_drop_file(self, event):
+        """파일이 드롭되었을 때 처리"""
+        files = event.data
+        if not files: return
+        
+        # Windows의 경우 중괄호({})로 경로가 감싸지는 경우가 있음
+        # 예: "{C:/Path/To/File.txt} C:/Another/File.jpg"
+        # 간단한 파싱 로직 (하나의 파일만 우선 처리)
+        file_path = files.strip()
+        if file_path.startswith('{') and file_path.endswith('}'):
+            file_path = file_path[1:-1]
+            
+        # 여러 파일이 들어올 수 있으나, 여기선 첫 번째 경로만 처리하거나 리스트로 분리
+        # (tkinterdnd2는 공백으로 구분된 파일 목록을 문자열로 줌)
+        
+        if os.path.exists(file_path):
+            # 파일 복사 및 저장
+            saved_path, error = self.dm.save_attachment(file_path)
+            if saved_path:
+                # 메모 입력창에 자동 입력
+                current_text = self.memo_entry.get("1.0", "end").strip()
+                new_text = f"[파일첨부] {os.path.basename(saved_path)}\n(경로: {saved_path})"
+                
+                if current_text:
+                    self.memo_entry.insert("end", "\n" + new_text)
+                else:
+                    self.memo_entry.insert("1.0", new_text)
+            else:
+                messagebox.showerror("파일 저장 실패", error, parent=self)
 
     def _handle_enter_key(self, event):
         if event.state & 0x0001: # Shift key pressed
@@ -138,7 +192,7 @@ class BasePopup(ctk.CTkToplevel):
         card = ctk.CTkFrame(self.memo_scroll, fg_color=COLORS["bg_dark"], corner_radius=6)
         card.pack(fill="x", pady=5, padx=5)
 
-        # [수정] 헤더 영역을 프레임으로 변경 (삭제 버튼 배치를 위해)
+        # Header Frame
         header_frame = ctk.CTkFrame(card, fg_color="transparent", height=20)
         header_frame.pack(fill="x", padx=10, pady=(8, 2))
 
@@ -146,7 +200,7 @@ class BasePopup(ctk.CTkToplevel):
         header_text = f"{memo['일시']} | {memo['작업자']} ({memo['PC정보']})"
         ctk.CTkLabel(header_frame, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
 
-        # [신규] 삭제 버튼 (x)
+        # 삭제 버튼 (x)
         btn_del = ctk.CTkButton(
             header_frame, 
             text="×", 
@@ -161,8 +215,37 @@ class BasePopup(ctk.CTkToplevel):
         btn_del.pack(side="right")
 
         # Content
-        content_lbl = ctk.CTkLabel(card, text=memo['내용'], font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
-        content_lbl.pack(anchor="w", padx=10, pady=(0, 8))
+        content_text = memo['내용']
+        
+        # [신규] 파일 첨부인 경우 클릭 시 파일 열기 기능 추가
+        # 간단하게 "[파일첨부]" 텍스트가 포함되어 있고 경로가 있으면 버튼화
+        if "[파일첨부]" in content_text and "(경로:" in content_text:
+            # 텍스트 파싱 (단순화된 방식)
+            try:
+                start_idx = content_text.find("(경로:") + 5
+                end_idx = content_text.find(")", start_idx)
+                file_path = content_text[start_idx:end_idx].strip()
+                
+                # 파일명만 표시
+                display_text = content_text.split('\n')[0] 
+                
+                btn_file = ctk.CTkButton(
+                    card, 
+                    text=f"📁 {display_text}", 
+                    fg_color=COLORS["bg_medium"], 
+                    hover_color=COLORS["bg_light"],
+                    text_color=COLORS["primary"],
+                    anchor="w",
+                    command=lambda p=file_path: self._open_pdf_file(p) # 기존 파일 열기 함수 재사용
+                )
+                btn_file.pack(fill="x", padx=10, pady=(0, 8))
+            except:
+                # 파싱 실패 시 일반 텍스트로 표시
+                content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
+                content_lbl.pack(anchor="w", padx=10, pady=(0, 8))
+        else:
+            content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
+            content_lbl.pack(anchor="w", padx=10, pady=(0, 8))
 
     def _delete_memo_confirm(self, memo):
         """메모 삭제 확인 및 처리"""
