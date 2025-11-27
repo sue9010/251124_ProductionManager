@@ -39,7 +39,7 @@ class GanttView(ctk.CTkFrame):
         ctk.CTkLabel(toolbar, text="📈 Gantt Chart (생산중)", font=FONTS["title"], text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(
-            toolbar, text="🔄 새로고침", width=80, height=32,
+            toolbar, text="🔄 새로고침", width=80, height=32,text_color=COLORS["text"],
             fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"],
             command=self.refresh_data, font=FONTS["main"]
         ).pack(side="right")

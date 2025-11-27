@@ -48,7 +48,7 @@ class KanbanView(ctk.CTkFrame):
         ctk.CTkLabel(toolbar, text="📋 Kanban Board", font=FONTS["title"], text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(
-            toolbar, text="🔄 새로고침", width=80, height=32,
+            toolbar, text="🔄 새로고침", width=80, height=32,text_color=COLORS["text"],
             fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"],
             command=self.refresh_data, font=FONTS["main"]
         ).pack(side="right")
@@ -136,11 +136,11 @@ class KanbanView(ctk.CTkFrame):
             top_row.pack(fill="x", padx=8, pady=(8, 2))
             
             # [수정] 폰트 적용
-            ctk.CTkLabel(top_row, text=comp, font=(FONT_FAMILY, 11, "bold"), text_color=COLORS["primary"]).pack(side="left")
+            ctk.CTkLabel(top_row, text=comp, font=(FONT_FAMILY, 12, "bold"), text_color=COLORS["primary"]).pack(side="left")
             
             item_count = len(group_df)
             count_text = f"{item_count}종" if item_count > 1 else "1종"
-            ctk.CTkLabel(top_row, text=count_text, font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(side="right")
+            ctk.CTkLabel(top_row, text=count_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="right")
             
             mid_row = ctk.CTkFrame(card, fg_color="transparent")
             mid_row.pack(fill="x", padx=8, pady=2)
@@ -149,15 +149,15 @@ class KanbanView(ctk.CTkFrame):
                 model = str(row['모델명'])
                 qty = str(row['수량'])
                 item_text = f"• {model} ({qty})"
-                ctk.CTkLabel(mid_row, text=item_text, font=(FONT_FAMILY, 11), text_color=COLORS["text"], wraplength=180, justify="left", anchor="w").pack(fill="x", anchor="w")
+                ctk.CTkLabel(mid_row, text=item_text, font=(FONT_FAMILY, 12), text_color=COLORS["text"], wraplength=180, justify="left", anchor="w").pack(fill="x", anchor="w")
             
             bot_row = ctk.CTkFrame(card, fg_color="transparent")
             bot_row.pack(fill="x", padx=8, pady=(5, 8))
-            ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(side="left")
+            ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
             
             date_color = COLORS["text_dim"]
             if status == "생산중": date_color = COLORS["success"]
-            ctk.CTkLabel(bot_row, text=date, font=(FONT_FAMILY, 10), text_color=date_color).pack(side="right")
+            ctk.CTkLabel(bot_row, text=date, font=(FONT_FAMILY, 12), text_color=date_color).pack(side="right")
 
             drag_text = f"[{req_no}] {comp} ({item_count}종)"
             widgets_to_bind = [card, top_row, mid_row, bot_row] + top_row.winfo_children() + mid_row.winfo_children() + bot_row.winfo_children()

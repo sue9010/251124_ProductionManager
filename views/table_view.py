@@ -43,7 +43,7 @@ class TableView(ctk.CTkFrame):
 
         FILTER_WIDTH = 120
         self.filter_dropdown_btn = ctk.CTkButton(
-            view_frame, text="필터 선택 ▼", command=self.toggle_filter_dropdown,
+            view_frame, text="필터 선택 ▼", command=self.toggle_filter_dropdown,text_color=COLORS["text"],
             width=FILTER_WIDTH, height=34, fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"],
             border_color=COLORS["border"], border_width=1, font=(FONT_FAMILY, 12), anchor="w"
         )
@@ -63,7 +63,7 @@ class TableView(ctk.CTkFrame):
         self.search_entry.bind("<Return>", lambda e: self.refresh_data())
 
         ctk.CTkButton(
-            control_frame, text="검색", command=self.refresh_data, 
+            control_frame, text="검색", command=self.refresh_data, text_color=COLORS["text"],
             width=60, height=34, fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"], 
             border_width=1, border_color=COLORS["border"], font=(FONT_FAMILY, 12)
         ).pack(side="left", padx=2)

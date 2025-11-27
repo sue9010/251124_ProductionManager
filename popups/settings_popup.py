@@ -49,7 +49,7 @@ class SettingsPopup(BasePopup):
         self.path_entry.insert(0, self.dm.current_excel_path)
         self.path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        ctk.CTkButton(path_frame, text="찾기", width=60, command=self.browse_excel, fg_color=COLORS["bg_light"], font=(FONT_FAMILY, 12)).pack(side="right")
+        ctk.CTkButton(path_frame, text="찾기", width=60, command=self.browse_excel, text_color=COLORS["text"], fg_color=COLORS["bg_light"], font=(FONT_FAMILY, 12)).pack(side="right")
         
         # 구분선
         ctk.CTkFrame(parent, height=1, fg_color=COLORS["border"]).pack(fill="x", padx=20, pady=20)
@@ -64,9 +64,9 @@ class SettingsPopup(BasePopup):
         self.attach_path_entry.insert(0, self.dm.attachment_dir)
         self.attach_path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        ctk.CTkButton(attach_frame, text="폴더 선택", width=80, command=self.browse_folder, fg_color=COLORS["bg_light"], font=(FONT_FAMILY, 12)).pack(side="right")
+        ctk.CTkButton(attach_frame, text="폴더 선택", width=80, command=self.browse_folder, text_color=COLORS["text"],fg_color=COLORS["bg_light"], font=(FONT_FAMILY, 12)).pack(side="right")
 
-        # 4. 하단 저장 버튼
+        # 4. 하단 저장 버튼1
         ctk.CTkButton(parent, text="설정 저장 및 닫기", command=self.save, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], font=(FONT_FAMILY, 12, "bold")).pack(side="bottom", pady=20)
 
     def change_theme(self, new_theme):
