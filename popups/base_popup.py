@@ -138,15 +138,40 @@ class BasePopup(ctk.CTkToplevel):
         card = ctk.CTkFrame(self.memo_scroll, fg_color=COLORS["bg_dark"], corner_radius=6)
         card.pack(fill="x", pady=5, padx=5)
 
-        # Header: Date | User (PC)
+        # [수정] 헤더 영역을 프레임으로 변경 (삭제 버튼 배치를 위해)
+        header_frame = ctk.CTkFrame(card, fg_color="transparent", height=20)
+        header_frame.pack(fill="x", padx=10, pady=(8, 2))
+
+        # Header Text: Date | User (PC)
         header_text = f"{memo['일시']} | {memo['작업자']} ({memo['PC정보']})"
-        
-        # [핵심 수정] 하드코딩된 "Malgun Gothic"을 FONT_FAMILY로 교체
-        ctk.CTkLabel(card, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(anchor="w", padx=10, pady=(8, 2))
+        ctk.CTkLabel(header_frame, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
+
+        # [신규] 삭제 버튼 (x)
+        btn_del = ctk.CTkButton(
+            header_frame, 
+            text="×", 
+            width=20, 
+            height=20, 
+            fg_color="transparent", 
+            hover_color=COLORS["danger"], 
+            text_color=COLORS["text_dim"], 
+            font=(FONT_FAMILY, 16, "bold"),
+            command=lambda m=memo: self._delete_memo_confirm(m)
+        )
+        btn_del.pack(side="right")
 
         # Content
         content_lbl = ctk.CTkLabel(card, text=memo['내용'], font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
         content_lbl.pack(anchor="w", padx=10, pady=(0, 8))
+
+    def _delete_memo_confirm(self, memo):
+        """메모 삭제 확인 및 처리"""
+        if messagebox.askyesno("메모 삭제", "선택한 메모를 삭제하시겠습니까?", parent=self):
+            success, msg = self.dm.delete_memo(self.req_no, memo['일시'], memo['내용'])
+            if success:
+                self._refresh_memo_list()
+            else:
+                messagebox.showerror("오류", msg, parent=self)
 
     # ----------------------------------------------------------------
     # Common Helpers

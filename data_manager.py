@@ -181,6 +181,19 @@ class DataManager:
         target_memos = target_memos.sort_values(by="일시", ascending=False)
         return target_memos.to_dict('records')
 
+    def delete_memo(self, req_no, timestamp, content):
+        """특정 메모 삭제"""
+        mask = (
+            (self.memo_df["번호"].astype(str) == str(req_no)) & 
+            (self.memo_df["일시"] == timestamp) & 
+            (self.memo_df["내용"] == content)
+        )
+        
+        if mask.any():
+            self.memo_df = self.memo_df[~mask]
+            return self.save_to_excel()
+        return False, "삭제할 메모를 찾을 수 없습니다."
+
     # -----------------------------------------------------
     # Business Logic
     # -----------------------------------------------------
