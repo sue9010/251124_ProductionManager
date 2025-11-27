@@ -35,7 +35,7 @@ class CalendarView(ctk.CTkFrame):
 
     def create_widgets(self):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.pack(pady=(0, 10), padx=10, fill="x", side="top")
+        header_frame.pack(pady=(10, 10), padx=10, fill="x", side="top")
 
         self.btn_prev = ctk.CTkButton(
             header_frame, text="< 이전 4주", command=self.prev_weeks, 
@@ -56,7 +56,7 @@ class CalendarView(ctk.CTkFrame):
 
         ctk.CTkButton(
             header_frame, text="🔄 새로고침", width=80, height=32,
-            fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], 
+            fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light_hover"], 
             command=self.refresh_data, font=FONTS["main"], text_color=COLORS["text"]
         ).pack(side="right", padx=(0, 10))
 
