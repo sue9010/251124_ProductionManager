@@ -104,22 +104,40 @@ class GanttView(ctk.CTkFrame):
         mask_no_end = active_df['end_date'].isna()
         active_df.loc[mask_no_end, 'end_date'] = active_df.loc[mask_no_end, 'start_date']
 
-        # 4. 기간 계산 (matplotlib barh용 width)
-        active_df['duration'] = (active_df['end_date'] - active_df['start_date']).dt.days
-        active_df.loc[active_df['duration'] <= 0, 'duration'] = 1
+        # [핵심 수정] 번호(req_no) 기준으로 그룹화하여 중복 제거
+        # 번호별로 가장 빠른 시작일과 가장 늦은 종료일을 구함 (혹은 첫 번째 행 기준)
+        # 여기서는 단순히 첫 번째 행의 정보를 대표값으로 사용하되, 품목 수 등을 라벨에 추가할 수 있음
         
-        # 5. Y축 라벨 생성 (번호 + 업체명)
-        active_df['label'] = active_df.apply(lambda x: f"No.{x['번호']} [{x['업체명']}]", axis=1)
+        # 그룹화할 컬럼들 (번호와 업체명은 동일하다고 가정)
+        group_cols = ['번호', '업체명']
+        
+        # 집계 방식 정의
+        agg_dict = {
+            'start_date': 'min',  # 시작일은 가장 빠른 날짜
+            'end_date': 'max',    # 종료일은 가장 늦은 날짜
+            '모델명': 'count',    # 모델명 개수로 품목 수 파악
+            'Status': 'first'     # 상태값 가져오기 (생산중)
+        }
+        
+        # 그룹화 수행
+        grouped_df = active_df.groupby(group_cols, as_index=False).agg(agg_dict)
+        
+        # 4. 기간 계산 (matplotlib barh용 width)
+        grouped_df['duration'] = (grouped_df['end_date'] - grouped_df['start_date']).dt.days
+        grouped_df.loc[grouped_df['duration'] <= 0, 'duration'] = 1
+        
+        # 5. Y축 라벨 생성 (번호 + 업체명 + 품목수)
+        grouped_df['label'] = grouped_df.apply(lambda x: f"No.{x['번호']} [{x['업체명']}] ({x['모델명']}종)", axis=1)
         
         # 6. 정렬 (번호 내림차순 -> 차트에서는 위에서부터 그려짐)
         try:
-            active_df['sort_helper'] = pd.to_numeric(active_df['번호'])
+            grouped_df['sort_helper'] = pd.to_numeric(grouped_df['번호'])
         except:
-            active_df['sort_helper'] = active_df['번호'].astype(str)
+            grouped_df['sort_helper'] = grouped_df['번호'].astype(str)
             
-        active_df = active_df.sort_values(by='sort_helper', ascending=False)
+        grouped_df = grouped_df.sort_values(by='sort_helper', ascending=False)
         
-        return active_df
+        return grouped_df
 
     def _draw_gantt_chart(self, df):
         """Matplotlib을 이용해 차트 그리기"""
@@ -130,6 +148,9 @@ class GanttView(ctk.CTkFrame):
 
         # 기존 메시지 라벨 제거
         for w in self.chart_content.winfo_children(): w.destroy()
+
+        # [신규] 호버/클릭 이벤트를 위해 데이터프레임 저장
+        self.gantt_df = df
 
         # --- 스타일 설정 ---
         # [수정] Matplotlib은 튜플 색상을 이해하지 못하므로 get_color_str()을 통해 단일 색상 문자열로 변환
@@ -146,6 +167,8 @@ class GanttView(ctk.CTkFrame):
         
         # Figure 생성
         fig, ax = plt.subplots(figsize=(10, fig_height), dpi=100)
+        self.ax = ax # [신규] 이벤트를 위해 ax 저장
+        
         fig.patch.set_facecolor(bg_color)
         ax.set_facecolor(bg_color)
         
@@ -161,8 +184,16 @@ class GanttView(ctk.CTkFrame):
         y_pos = range(len(y_labels))
         
         # --- 막대 그리기 (Barh) ---
-        ax.barh(y_pos, durations, left=start_dates, height=0.4, align='center', color=color, edgecolor=bg_color)
+        # [신규] 이벤트를 위해 bars 객체 저장
+        self.bars = ax.barh(y_pos, durations, left=start_dates, height=0.4, align='center', color=color, edgecolor=bg_color)
         
+        # [신규] 툴팁 어노테이션 생성 (초기에는 숨김)
+        self.annot = ax.annotate("", xy=(0,0), xytext=(15,0), textcoords="offset points",
+                                 bbox=dict(boxstyle="round", fc="white", ec="gray", alpha=0.9),
+                                 color="black", weight="bold", fontsize=9,
+                                 arrowprops=dict(arrowstyle="-", color="gray"))
+        self.annot.set_visible(False)
+
         # --- X축 눈금 간격 동적 계산 ---
         min_date = df['start_date'].min()
         max_date = df['end_date'].max()
@@ -215,6 +246,55 @@ class GanttView(ctk.CTkFrame):
         self.canvas = FigureCanvasTkAgg(fig, master=self.chart_content)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # [신규] 마우스 호버 이벤트 연결
+        self.canvas.mpl_connect("motion_notify_event", self.on_hover)
+        # [신규] 마우스 클릭 이벤트 연결 (더블클릭 감지)
+        self.canvas.mpl_connect("button_press_event", self.on_click)
+
+    # [신규] 마우스 호버 이벤트 핸들러
+    def on_hover(self, event):
+        if event.inaxes == self.ax:
+            for i, bar in enumerate(self.bars):
+                cont, _ = bar.contains(event)
+                if cont:
+                    # 해당 바의 데이터 가져오기
+                    row = self.gantt_df.iloc[i]
+                    end_date = row['end_date']
+                    date_str = end_date.strftime('%Y-%m-%d')
+                    
+                    # 툴팁 위치 및 텍스트 설정 (바의 오른쪽 끝에 표시)
+                    self.annot.xy = (bar.get_x() + bar.get_width(), bar.get_y() + bar.get_height()/2)
+                    self.annot.set_text(f"출고예정: {date_str}")
+                    self.annot.set_visible(True)
+                    self.canvas.draw_idle()
+                    return
+        
+        # 마우스가 바 위에 없으면 툴팁 숨김
+        if hasattr(self, 'annot') and self.annot.get_visible():
+            self.annot.set_visible(False)
+            self.canvas.draw_idle()
+
+    # [신규] 마우스 클릭(더블클릭) 이벤트 핸들러
+    def on_click(self, event):
+        # 더블클릭인지 확인
+        if event.dblclick and event.inaxes == self.ax:
+            for i, bar in enumerate(self.bars):
+                cont, _ = bar.contains(event)
+                if cont:
+                    # 클릭된 바의 데이터 가져오기
+                    row = self.gantt_df.iloc[i]
+                    req_no = row['번호']
+                    status = row['Status']
+                    
+                    # 상태에 따른 팝업 열기
+                    if status == "생산중":
+                        self.pm.open_complete_popup(req_no)
+                    elif status == "완료":
+                        self.pm.open_completed_view_popup(req_no)
+                    else:
+                        self.pm.open_schedule_popup(req_no)
+                    return
 
     def _show_empty_msg(self, msg):
         if self.canvas:
