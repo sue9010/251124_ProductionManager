@@ -5,7 +5,6 @@ from tkinter import messagebox
 import customtkinter as ctk
 import pandas as pd
 
-# [수정] FONT_FAMILY 추가
 from styles import COLORS, FONT_FAMILY, FONTS
 
 
@@ -15,6 +14,7 @@ class KanbanView(ctk.CTkFrame):
         self.dm = data_manager
         self.pm = popup_manager
 
+        # 상태 정의 및 표시 순서
         self.columns = {
             "생산 접수": {"color": COLORS["primary"], "bg": COLORS["bg_dark"]},
             "대기":     {"color": COLORS["warning"], "bg": COLORS["bg_dark"]},
@@ -23,9 +23,11 @@ class KanbanView(ctk.CTkFrame):
             "완료":     {"color": COLORS["text_dim"], "bg": COLORS["bg_dark"]}
         }
         
-        self.column_frames = {} 
-        self.cards = {}          
+        # UI 요소 저장소
+        self.column_frames = {}  # { "상태명": scrollable_frame }
+        self.cards = {}          # { req_no: card_widget }
 
+        # 드래그 앤 드롭 상태
         self.drag_data = {
             "item": None, "req_no": None, "text": None, "window": None, "start_status": None
         }
@@ -48,8 +50,8 @@ class KanbanView(ctk.CTkFrame):
         ctk.CTkLabel(toolbar, text="📋 Kanban Board", font=FONTS["title"], text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(
-            toolbar, text="🔄 새로고침", width=80, height=32,text_color=COLORS["text"],
-            fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"],
+            toolbar, text="🔄 새로고침", width=80, height=32,
+            fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"], text_color=COLORS["text"],
             command=self.refresh_data, font=FONTS["main"]
         ).pack(side="right")
 
@@ -67,14 +69,12 @@ class KanbanView(ctk.CTkFrame):
             header = ctk.CTkFrame(col_container, height=40, fg_color="transparent")
             header.pack(fill="x", padx=10, pady=5)
             
-            # [수정] Arial -> FONT_FAMILY
             dot = ctk.CTkLabel(header, text="●", font=(FONT_FAMILY, 14), text_color=style["color"])
             dot.pack(side="left", padx=(0, 5))
             
             title = ctk.CTkLabel(header, text=status, font=FONTS["header"], text_color=COLORS["text"])
             title.pack(side="left")
             
-            # [수정] Arial -> FONT_FAMILY
             count_badge = ctk.CTkLabel(header, text="0", width=24, height=24, fg_color=COLORS["bg_medium"], corner_radius=12, font=(FONT_FAMILY, 10, "bold"), text_color=COLORS["text"])
             count_badge.pack(side="right")
             
@@ -105,12 +105,30 @@ class KanbanView(ctk.CTkFrame):
                 target_df = df[status_series == status].copy()
             
             if not target_df.empty:
+                # 기본적으로 번호 내림차순(최신순) 정렬
                 if "번호" in target_df.columns:
-                    target_df = target_df.sort_values(by="번호", ascending=False)
-            
+                    # 번호 컬럼을 숫자로 변환하여 정렬
+                    target_df["_sort_helper"] = pd.to_numeric(target_df["번호"], errors='coerce')
+                    target_df = target_df.sort_values(by="_sort_helper", ascending=False)
+                    
+                    # [핵심 수정] "완료" 상태인 경우 상위 10건만 유지
+                    if status == "완료":
+                        # 중복된 번호를 제거한 후 상위 10개 번호 추출
+                        unique_nos = target_df["번호"].unique()
+                        if len(unique_nos) > 10:
+                            top_10_nos = unique_nos[:10]
+                            target_df = target_df[target_df["번호"].isin(top_10_nos)]
+
             unique_groups = target_df['번호'].unique() if "번호" in target_df.columns else []
             count = len(unique_groups)
-            self.column_frames[status]["badge"].configure(text=str(count))
+            
+            # 배지에 개수 표시 (완료인 경우 '10+' 등으로 표시할 수도 있음)
+            badge_text = str(count)
+            if status == "완료" and count == 10: # 정확히 10개라면 실제로는 더 있을 수 있음
+                 # 전체 완료 건수를 따로 계산해서 보여줄 수도 있지만, 여기선 화면 표시 개수로 통일
+                 pass
+
+            self.column_frames[status]["badge"].configure(text=badge_text)
 
             self.create_cards(status, target_df)
 
@@ -118,7 +136,8 @@ class KanbanView(ctk.CTkFrame):
         parent = self.column_frames[status]["frame"]
         if df.empty: return
 
-        unique_req_nos = df['번호'].unique()
+        # df는 이미 정렬된 상태임 (refresh_data에서 처리)
+        unique_req_nos = df['번호'].unique() # pandas unique는 출현 순서 유지
 
         for req_no in unique_req_nos:
             group_df = df[df['번호'] == req_no]
@@ -128,6 +147,7 @@ class KanbanView(ctk.CTkFrame):
             comp = str(first_row['업체명'])
             date = str(first_row['출고예정일']) if pd.notna(first_row['출고예정일']) else "-"
             if status == "생산 접수": date = str(first_row['출고요청일'])
+            if status == "완료": date = str(first_row['출고일']) # 완료일 경우 출고일 표시
 
             card = ctk.CTkFrame(parent, fg_color=COLORS["bg_medium"], corner_radius=6, border_width=1, border_color=COLORS["border"])
             card.pack(fill="x", pady=4, padx=2)
@@ -135,12 +155,11 @@ class KanbanView(ctk.CTkFrame):
             top_row = ctk.CTkFrame(card, fg_color="transparent", height=20)
             top_row.pack(fill="x", padx=8, pady=(8, 2))
             
-            # [수정] 폰트 적용
-            ctk.CTkLabel(top_row, text=comp, font=(FONT_FAMILY, 12, "bold"), text_color=COLORS["primary"]).pack(side="left")
+            ctk.CTkLabel(top_row, text=comp, font=(FONT_FAMILY, 11, "bold"), text_color=COLORS["primary"]).pack(side="left")
             
             item_count = len(group_df)
             count_text = f"{item_count}종" if item_count > 1 else "1종"
-            ctk.CTkLabel(top_row, text=count_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="right")
+            ctk.CTkLabel(top_row, text=count_text, font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(side="right")
             
             mid_row = ctk.CTkFrame(card, fg_color="transparent")
             mid_row.pack(fill="x", padx=8, pady=2)
@@ -149,15 +168,15 @@ class KanbanView(ctk.CTkFrame):
                 model = str(row['모델명'])
                 qty = str(row['수량'])
                 item_text = f"• {model} ({qty})"
-                ctk.CTkLabel(mid_row, text=item_text, font=(FONT_FAMILY, 12), text_color=COLORS["text"], wraplength=180, justify="left", anchor="w").pack(fill="x", anchor="w")
+                ctk.CTkLabel(mid_row, text=item_text, font=(FONT_FAMILY, 11), text_color=COLORS["text"], wraplength=180, justify="left", anchor="w").pack(fill="x", anchor="w")
             
             bot_row = ctk.CTkFrame(card, fg_color="transparent")
             bot_row.pack(fill="x", padx=8, pady=(5, 8))
-            ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
+            ctk.CTkLabel(bot_row, text=f"No.{req_no}", font=(FONT_FAMILY, 10), text_color=COLORS["text_dim"]).pack(side="left")
             
             date_color = COLORS["text_dim"]
             if status == "생산중": date_color = COLORS["success"]
-            ctk.CTkLabel(bot_row, text=date, font=(FONT_FAMILY, 12), text_color=date_color).pack(side="right")
+            ctk.CTkLabel(bot_row, text=date, font=(FONT_FAMILY, 10), text_color=date_color).pack(side="right")
 
             drag_text = f"[{req_no}] {comp} ({item_count}종)"
             widgets_to_bind = [card, top_row, mid_row, bot_row] + top_row.winfo_children() + mid_row.winfo_children() + bot_row.winfo_children()
