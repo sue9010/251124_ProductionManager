@@ -32,7 +32,7 @@ class TableView(ctk.CTkFrame):
         self.refresh_data()
 
     def create_widgets(self):
-        self.toolbar_wrapper = ctk.CTkFrame(self, fg_color="transparent", height=60)
+        self.toolbar_wrapper = ctk.CTkFrame(self, fg_color=COLORS["transparent"], height=60)
         self.toolbar_wrapper.pack(side="top", fill="x", padx=20, pady=(20, 10))
 
         view_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
@@ -56,6 +56,14 @@ class TableView(ctk.CTkFrame):
 
         control_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
         control_frame.pack(side="right")
+
+        # [신규] 새로고침 버튼 추가
+        ctk.CTkButton(
+            control_frame, text="새로고침", width=60, height=34, 
+            command=self.refresh_data, text_color=COLORS["text"],
+            fg_color=COLORS["bg_medium"], hover_color=COLORS["bg_light"], 
+            border_width=1, border_color=COLORS["border"], font=(FONT_FAMILY, 12)
+        ).pack(side="left", padx=(5, 0))
 
         self.search_entry = ctk.CTkEntry(control_frame, width=220, height=34, placeholder_text="번호, 업체, 모델...", border_color=COLORS["border"], fg_color=COLORS["bg_medium"], font=(FONT_FAMILY, 12))
         self.search_entry.pack(side="left", padx=5)

@@ -3,7 +3,7 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-# [신규] 드래그 앤 드롭 라이브러리 임포트
+# 드래그 앤 드롭 라이브러리 임포트
 try:
     from tkinterdnd2 import TkinterDnD
     DND_AVAILABLE = True
@@ -14,14 +14,15 @@ except ImportError:
 from config import Config
 from data_manager import DataManager
 from popup_manager import PopupManager
-from styles import COLORS, FONTS
+from styles import COLORS, FONT_FAMILY, FONTS
+# 뷰 임포트
 from views.calendar_view import CalendarView
+from views.dashboard import DashboardView  # [신규] 임포트
 from views.gantt_view import GanttView
 from views.kanban_view import KanbanView
 from views.table_view import TableView
 
-# [핵심 수정] TkinterDnD.DnDWrapper 상속 추가
-# 이렇게 해야 메인 윈도우가 드래그 앤 드롭 이벤트를 수신할 준비를 합니다.
+# TkinterDnD.DnDWrapper 상속 (DnD 기능 활성화)
 if DND_AVAILABLE:
     class BaseApp(ctk.CTk, TkinterDnD.DnDWrapper):
         def __init__(self, *args, **kwargs):
@@ -35,10 +36,10 @@ class COXProductionManager(BaseApp):
     def __init__(self):
         super().__init__()
 
-        # 1. 모듈 초기화 (설정을 먼저 불러와야 함)
+        # 1. 모듈 초기화 (설정을 먼저 불러와야 함) - [수정] 순서 변경: 가장 먼저 실행
         self.dm = DataManager()
-        
-        # 2. 기본 설정 및 테마 적용
+
+        # 2. 기본 설정
         self.title(f"COX Production Manager - v{Config.APP_VERSION}")
         self.geometry("1650x900")
         
@@ -67,7 +68,9 @@ class COXProductionManager(BaseApp):
 
         # 5. 초기화
         self.load_data_initial()
-        self.show_table_view()
+        
+        # [수정] 시작 시 대시보드 뷰 표시
+        self.show_dashboard_view()
 
     def create_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=COLORS["bg_dark"])
@@ -77,8 +80,15 @@ class COXProductionManager(BaseApp):
         logo = ctk.CTkLabel(self.sidebar_frame, text="Production Manager", font=("Emoji", 24, "bold"), text_color=COLORS["primary"])
         logo.pack(pady=(30, 20), padx=20, anchor="w")
         
+        # [신규] 로고 클릭 시 대시보드로 이동 (커서 변경 효과 추가)
+        logo.bind("<Button-1>", lambda e: self.show_dashboard_view())
+        logo.bind("<Enter>", lambda e: logo.configure(cursor="hand2"))
+        logo.bind("<Leave>", lambda e: logo.configure(cursor=""))
+        
         self.nav_buttons = {}
+        # [수정] 대시보드 버튼 추가
         btn_data = [
+            ("🏠  대시보드", self.show_dashboard_view),
             ("📊  테이블 뷰", self.show_table_view),
             ("📅  생산 달력", self.show_calendar_view),
             ("📋  칸반 보드", self.show_kanban_view),
@@ -96,14 +106,16 @@ class COXProductionManager(BaseApp):
 
         # 하단 버튼
         ctk.CTkFrame(self.sidebar_frame, height=1, fg_color=COLORS["border"]).pack(fill="x", pady=20, padx=10, side="bottom")
-        ctk.CTkButton(self.sidebar_frame, text="⚙️  설정", command=self.pm.open_settings, height=40, anchor="w", fg_color="transparent", text_color=COLORS["text_dim"], hover_color=COLORS["bg_medium"]).pack(fill="x", padx=10, pady=5, side="bottom")
-        ctk.CTkButton(self.sidebar_frame, text="🔄  데이터 로드", command=self.reload_all_data, height=40, anchor="w", fg_color=COLORS["bg_medium"], text_color=COLORS["text"], hover_color=COLORS["bg_light"]).pack(fill="x", padx=10, pady=10, side="bottom")
+        ctk.CTkButton(self.sidebar_frame, text="⚙️  설정", command=self.pm.open_settings, height=40, anchor="w", fg_color="transparent", text_color=COLORS["text_dim"], hover_color=COLORS["bg_medium"], font=FONTS["header"]).pack(fill="x", padx=10, pady=5, side="bottom")
+        ctk.CTkButton(self.sidebar_frame, text="🔄  데이터 로드", command=self.reload_all_data, height=40, anchor="w", fg_color=COLORS["bg_medium"], text_color=COLORS["text"], hover_color=COLORS["bg_light"], font=FONTS["header"]).pack(fill="x", padx=10, pady=10, side="bottom")
 
     def create_content_area(self):
         self.content_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.content_frame.grid(row=0, column=1, sticky="nsew")
         
         # 뷰 인스턴스 생성
+        # [신규] 대시보드 인스턴스 추가
+        self.view_dashboard = DashboardView(self.content_frame, self.dm, self.pm)
         self.view_table = TableView(self.content_frame, self.dm, self.pm)
         self.view_calendar = CalendarView(self.content_frame, self.dm, self.pm)
         self.view_kanban = KanbanView(self.content_frame, self.dm, self.pm)
@@ -127,6 +139,10 @@ class COXProductionManager(BaseApp):
         # 데이터 리프레시
         if hasattr(view_instance, "refresh_data"):
             view_instance.refresh_data()
+
+    # [신규] 대시보드 뷰 전환 함수
+    def show_dashboard_view(self):
+        self.switch_view("🏠  대시보드", self.view_dashboard)
 
     def show_table_view(self):
         self.switch_view("📊  테이블 뷰", self.view_table)
