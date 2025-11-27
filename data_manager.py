@@ -224,6 +224,16 @@ class DataManager:
         target_memos = target_memos.sort_values(by="일시", ascending=False)
         return target_memos.to_dict('records')
 
+    # [신규] 미확인 메모 개수 조회
+    def get_unchecked_memo_count(self, req_no):
+        """특정 번호의 미확인('N') 상태인 메모 개수 반환"""
+        if self.memo_df.empty:
+            return 0
+            
+        # 번호가 일치하고, 확인 컬럼이 'N'인 행 필터링
+        mask = (self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["확인"] == "N")
+        return len(self.memo_df[mask])
+
     def delete_memo(self, req_no, timestamp, content):
         mask = (
             (self.memo_df["번호"].astype(str) == str(req_no)) & 

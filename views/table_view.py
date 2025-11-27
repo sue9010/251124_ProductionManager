@@ -38,7 +38,6 @@ class TableView(ctk.CTkFrame):
         view_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
         view_frame.pack(side="left")
         
-        # [수정] 폰트 적용
         ctk.CTkLabel(view_frame, text="Filter:", font=(FONT_FAMILY, 12, "bold"), text_color=COLORS["text_dim"]).pack(side="left", padx=(0, 10))
 
         FILTER_WIDTH = 120
@@ -84,14 +83,13 @@ class TableView(ctk.CTkFrame):
             self.tree.heading(col, text=col, command=lambda c=col: self.on_header_click(c))
             width = 100
             if col in ["업체명", "모델명", "상세"]: width = 160
-            if col == "번호": width = 70
+            if col == "번호": width = 90
             if col == "Status": width = 100
             self.tree.column(col, width=width, anchor="center")
 
         self.dashboard_frame = ctk.CTkFrame(self, height=40, fg_color=COLORS["bg_medium"], corner_radius=0)
         self.dashboard_frame.pack(side="bottom", fill="x")
         
-        # [수정] 폰트 적용
         self.dashboard_label = ctk.CTkLabel(self.dashboard_frame, text="Ready", font=(FONT_FAMILY, 11), text_color=COLORS["text_dim"])
         self.dashboard_label.pack(side="left", padx=30, pady=8)
 
@@ -116,7 +114,16 @@ class TableView(ctk.CTkFrame):
                 values = list(row[col] for col in Config.DISPLAY_COLUMNS)
                 status = row['Status']
                 req_date = str(row['출고요청일'])
+                req_no = row['번호'] 
                 
+                # [수정] 미확인 메모 개수 직접 계산 ('확인' 컬럼이 'Y'가 아닌 것만 카운트)
+                all_memos = self.dm.get_memos(req_no)
+                unchecked_count = sum(1 for m in all_memos if str(m.get('확인', 'N')) != 'Y')
+                
+                if unchecked_count > 0:
+                    # 번호 컬럼 값 변경: "123" -> "123 🔴(2)"
+                    values[0] = f"{values[0]} ({unchecked_count})"
+
                 row_tags = [status]
                 
                 if req_date == today_str:
@@ -157,7 +164,11 @@ class TableView(ctk.CTkFrame):
         
         item = selected[0]
         values = self.tree.item(item, "values")
-        req_no = values[0]
+        req_no_raw = str(values[0]) # 예: "123" 또는 "123 🔴(1)"
+        
+        # [핵심 수정] 배지(🔴)가 붙어있을 경우 순수 번호만 추출
+        # 공백을 기준으로 쪼개서 첫 번째 값만 가져옴
+        req_no = req_no_raw.split()[0]
         
         status = self.dm.get_status_by_req_no(req_no)
         
@@ -242,11 +253,10 @@ class TableView(ctk.CTkFrame):
         
         bg_color = get_color_str("bg_dark")
         fg_color = get_color_str("text")
-        header_bg = "#3a3a3a" if ctk.get_appearance_mode() == "Dark" else "#E0E0E0" # 헤더 배경 조금 진하게
+        header_bg = "#3a3a3a" if ctk.get_appearance_mode() == "Dark" else "#E0E0E0" 
         header_fg = get_color_str("primary")
         selected_bg = get_color_str("primary_hover")
         
-        # [핵심 수정] 하드코딩된 "Malgun Gothic"을 FONT_FAMILY 변수로 교체
         style.configure(
             "Treeview", 
             background=bg_color, 
@@ -268,7 +278,6 @@ class TableView(ctk.CTkFrame):
         style.map("Treeview", background=[('selected', selected_bg)])
         
         self.tree.tag_configure("중지", background="#4a2626", foreground="#ffcccc")
-        self.tree.tag_configure("Hold", background="#4a2626", foreground="#ffcccc")
         self.tree.tag_configure("완료", foreground="#888888")
         self.tree.tag_configure("생산중", foreground="#4caf50")
         self.tree.tag_configure("대기", foreground="#ff9800")
