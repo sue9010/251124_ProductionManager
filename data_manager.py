@@ -2,7 +2,6 @@ import getpass
 import json
 import os
 import platform
-import re
 import shutil
 from datetime import datetime
 
@@ -17,13 +16,15 @@ class DataManager:
         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) 
         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
         self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
+        # [신규] 시리얼 데이터프레임 추가
+        self.serial_df = pd.DataFrame(columns=Config.SERIAL_COLUMNS)
+        
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
         self.current_theme = "Dark"  
         self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
         self.load_config()
 
     def load_config(self):
-        """config.json 파일 로드"""
         if os.path.exists(Config.CONFIG_FILENAME):
             try:
                 with open(Config.CONFIG_FILENAME, "r", encoding="utf-8") as f:
@@ -35,22 +36,15 @@ class DataManager:
                 print(f"설정 로드 실패: {e}")
 
     def save_config(self, new_path=None, new_theme=None, new_attachment_dir=None):
-        """config.json 파일 저장"""
-        # [수정] 인자값 반영
-        if new_path:
-            self.current_excel_path = new_path
-        if new_theme:
-            self.current_theme = new_theme
-        if new_attachment_dir:
-            self.attachment_dir = new_attachment_dir
-            
-        # [수정] attachment_dir 포함하여 저장
+        if new_path: self.current_excel_path = new_path
+        if new_theme: self.current_theme = new_theme
+        if new_attachment_dir: self.attachment_dir = new_attachment_dir
+        
         data = {
             "excel_path": self.current_excel_path,
             "theme": self.current_theme,
             "attachment_dir": self.attachment_dir 
         }
-        
         try:
             with open(Config.CONFIG_FILENAME, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
@@ -62,29 +56,42 @@ class DataManager:
         if os.path.exists(self.current_excel_path):
             try:
                 with pd.ExcelFile(self.current_excel_path) as xls:
+                    # 1. Data 시트
                     if Config.SHEET_DATA in xls.sheet_names:
                         self.df = pd.read_excel(xls, Config.SHEET_DATA)
                     else:
                         self.df = pd.read_excel(xls, 0)
 
+                    # 2. Log 시트
                     if Config.SHEET_LOG in xls.sheet_names:
                         self.log_df = pd.read_excel(xls, Config.SHEET_LOG)
                     else:
                         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS)
                         
+                    # 3. Memo 시트
                     if Config.SHEET_MEMO in xls.sheet_names:
                         self.memo_df = pd.read_excel(xls, Config.SHEET_MEMO)
                     else:
                         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
+                    # 4. Memo Log 시트
                     if Config.SHEET_MEMO_LOG in xls.sheet_names:
                         self.memo_log_df = pd.read_excel(xls, Config.SHEET_MEMO_LOG)
                     else:
                         self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
 
+                    # [신규] 5. Serial Data 시트
+                    if Config.SHEET_SERIAL in xls.sheet_names:
+                        self.serial_df = pd.read_excel(xls, Config.SHEET_SERIAL)
+                        # 컬럼 타입 강제 변환 (요청번호 문자열로)
+                        if not self.serial_df.empty:
+                            self.serial_df["요청번호"] = self.serial_df["요청번호"].astype(str)
+                    else:
+                        self.serial_df = pd.DataFrame(columns=Config.SERIAL_COLUMNS)
+
+                # 컬럼 정리
                 current_cols_len = len(self.df.columns)
                 config_cols_len = len(Config.COLUMNS)
-
                 if current_cols_len >= config_cols_len:
                     self.df.columns = list(Config.COLUMNS) + list(self.df.columns[config_cols_len:])
                     self.df = self.df.iloc[:, :config_cols_len]
@@ -102,12 +109,10 @@ class DataManager:
 
     def _preprocess_data(self):
         """데이터 내부 전처리"""
-        if self.df.empty:
-            return
+        if self.df.empty: return
 
         for col in Config.COLUMNS:
-            if col not in self.df.columns:
-                self.df[col] = '-'
+            if col not in self.df.columns: self.df[col] = '-'
 
         for date_col in ["출고요청일", "출고예정일", "출고일"]:
             if date_col in self.df.columns:
@@ -115,19 +120,20 @@ class DataManager:
 
         self.df = self.df.fillna('-')
         
-        # 메모 데이터프레임 전처리
-        if self.memo_df.empty:
-            self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
+        if self.memo_df.empty: self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
         else:
-            if "확인" not in self.memo_df.columns:
-                self.memo_df["확인"] = "N"
+            if "확인" not in self.memo_df.columns: self.memo_df["확인"] = "N"
             
-        # 메모 로그 초기화
-        if self.memo_log_df.empty:
-            self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
+        if self.memo_log_df.empty: self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
+        
+        # [신규] 시리얼 데이터 전처리
+        if self.serial_df.empty:
+            self.serial_df = pd.DataFrame(columns=Config.SERIAL_COLUMNS)
+        else:
+            self.serial_df = self.serial_df.fillna("-")
 
     def save_to_excel(self):
-        """데이터, 로그, 메모를 엑셀 파일에 저장"""
+        """데이터, 로그, 메모, 시리얼데이터를 엑셀 파일에 저장"""
         existing_cols = [c for c in Config.COLUMNS if c in self.df.columns]
         output_df = self.df[existing_cols]
 
@@ -137,6 +143,8 @@ class DataManager:
                 self.log_df.to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
                 self.memo_df.to_excel(writer, sheet_name=Config.SHEET_MEMO, index=False)
                 self.memo_log_df.to_excel(writer, sheet_name=Config.SHEET_MEMO_LOG, index=False)
+                # [신규] 시리얼 데이터 시트 저장
+                self.serial_df.to_excel(writer, sheet_name=Config.SHEET_SERIAL, index=False)
             
             self.load_data()
             return True, "저장되었습니다."
@@ -147,87 +155,49 @@ class DataManager:
             return False, f"저장 중 오류 발생: {e}"
 
     def _add_log(self, action, details):
-        try:
-            user = getpass.getuser()
-        except:
-            user = "Unknown"
-
-        new_entry = {
-            "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "작업자": user,
-            "구분": action,
-            "상세내용": details
-        }
+        try: user = getpass.getuser()
+        except: user = "Unknown"
+        new_entry = {"일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "작업자": user, "구분": action, "상세내용": details}
         self.log_df = pd.concat([self.log_df, pd.DataFrame([new_entry])], ignore_index=True)
 
     def _add_memo_log(self, action, req_no, content):
-        try:
-            user = getpass.getuser()
-        except:
-            user = "Unknown"
-
-        new_entry = {
-            "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "작업자": user,
-            "구분": action,
-            "요청번호": str(req_no),
-            "내용": content
-        }
+        try: user = getpass.getuser()
+        except: user = "Unknown"
+        new_entry = {"일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "작업자": user, "구분": action, "요청번호": str(req_no), "내용": content}
         self.memo_log_df = pd.concat([self.memo_log_df, pd.DataFrame([new_entry])], ignore_index=True)
 
     def add_memo(self, req_no, content):
-        try:
-            user = getpass.getuser()
-            pc_info = platform.node()
-        except:
-            user = "Unknown"
-            pc_info = "Unknown"
-
-        new_memo = {
-            "번호": str(req_no),
-            "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "작업자": user,
-            "PC정보": pc_info,
-            "내용": content,
-            "확인": "N"
-        }
+        try: user = getpass.getuser()
+        except: user = "Unknown"
+        try: pc_info = platform.node()
+        except: pc_info = "Unknown"
+        new_memo = {"번호": str(req_no), "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "작업자": user, "PC정보": pc_info, "내용": content, "확인": "N"}
         self.memo_df = pd.concat([self.memo_df, pd.DataFrame([new_memo])], ignore_index=True)
         self._add_memo_log("추가", req_no, content)
         return self.save_to_excel()
 
     def update_memo_check(self, req_no, timestamp, content, new_status):
-        mask = (
-            (self.memo_df["번호"].astype(str) == str(req_no)) & 
-            (self.memo_df["일시"] == timestamp) & 
-            (self.memo_df["내용"] == content)
-        )
+        mask = ((self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["일시"] == timestamp) & (self.memo_df["내용"] == content))
         if mask.any():
             self.memo_df.loc[mask, "확인"] = new_status
             return self.save_to_excel()
         return False, "메모를 찾을 수 없습니다."
 
     def get_memos(self, req_no):
-        if self.memo_df.empty:
-            return []
+        if self.memo_df.empty: return []
         mask = self.memo_df["번호"].astype(str) == str(req_no)
         target_memos = self.memo_df[mask].copy()
-        if target_memos.empty:
-            return []
+        if target_memos.empty: return []
         target_memos = target_memos.sort_values(by="일시", ascending=False)
         return target_memos.to_dict('records')
 
     def get_unchecked_memo_count(self, req_no):
-        if self.memo_df.empty:
-            return 0
+        if self.memo_df.empty: return 0
         mask = (self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["확인"] == "N")
         return len(self.memo_df[mask])
 
     def delete_memo(self, req_no, timestamp, content):
-        mask = (
-            (self.memo_df["번호"].astype(str) == str(req_no)) & 
-            (self.memo_df["일시"] == timestamp) & 
-            (self.memo_df["내용"] == content)
-        )
+        mask = ((self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["일시"] == timestamp) & (self.memo_df["내용"] == content))
         if mask.any():
             if "[파일첨부]" in content and "(경로:" in content:
                 try:
@@ -235,25 +205,17 @@ class DataManager:
                     end_idx = content.rfind(")") 
                     if end_idx > start_idx:
                         file_path = content[start_idx:end_idx].strip()
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
-                            print(f"Deleted attachment: {file_path}")
-                        else:
-                            print(f"File not found: {file_path}")
-                except Exception as e:
-                    print(f"Failed to delete attachment: {e}")
-
+                        if os.path.exists(file_path): os.remove(file_path)
+                except: pass
             self.memo_df = self.memo_df[~mask]
             self._add_memo_log("삭제", req_no, content)
             return self.save_to_excel()
         return False, "삭제할 메모를 찾을 수 없습니다."
 
     def save_attachment(self, source_path):
-        if not os.path.exists(source_path):
-            return None, "원본 파일이 존재하지 않습니다."
+        if not os.path.exists(source_path): return None, "원본 파일이 존재하지 않습니다."
         try:
-            if not os.path.exists(self.attachment_dir):
-                os.makedirs(self.attachment_dir)
+            if not os.path.exists(self.attachment_dir): os.makedirs(self.attachment_dir)
             file_name = os.path.basename(source_path)
             name, ext = os.path.splitext(file_name)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -261,39 +223,31 @@ class DataManager:
             dest_path = os.path.join(self.attachment_dir, new_file_name)
             shutil.copy2(source_path, dest_path)
             return dest_path, None
-        except Exception as e:
-            return None, str(e)
+        except Exception as e: return None, str(e)
 
     def get_status_list(self):
-        if "Status" in self.df.columns:
-            return sorted(self.df["Status"].astype(str).unique().tolist())
+        if "Status" in self.df.columns: return sorted(self.df["Status"].astype(str).unique().tolist())
         return []
 
     def get_status_by_req_no(self, req_no):
-        if self.df.empty or "번호" not in self.df.columns:
-            return None
+        if self.df.empty or "번호" not in self.df.columns: return None
         mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            return self.df.loc[mask, "Status"].iloc[0]
+        if mask.any(): return self.df.loc[mask, "Status"].iloc[0]
         return None
 
     def get_filtered_data(self, status_filter_list=None, search_keyword="", sort_by=None, ascending=True):
         if self.df.empty: return self.df
         filtered_df = self.df.copy()
-
         if status_filter_list is not None and len(status_filter_list) > 0:
             filtered_df = filtered_df[filtered_df["Status"].astype(str).isin(status_filter_list)]
         elif status_filter_list is not None and len(status_filter_list) == 0:
             return filtered_df.iloc[0:0]
-
         if search_keyword:
             search_cols = [col for col in Config.SEARCH_TARGET_COLS if col in filtered_df.columns]
             if search_cols:
                 mask = pd.Series(False, index=filtered_df.index)
-                for col in search_cols:
-                    mask |= filtered_df[col].astype(str).str.contains(search_keyword, case=False, na=False)
+                for col in search_cols: mask |= filtered_df[col].astype(str).str.contains(search_keyword, case=False, na=False)
                 filtered_df = filtered_df[mask]
-
         if sort_by and sort_by in filtered_df.columns:
             if sort_by == "번호":
                 filtered_df["_sort_helper"] = pd.to_numeric(filtered_df[sort_by], errors='coerce')
@@ -301,7 +255,6 @@ class DataManager:
                 filtered_df = filtered_df.drop(columns=["_sort_helper"])
             else:
                 filtered_df = filtered_df.sort_values(by=sort_by, ascending=ascending)
-
         return filtered_df
 
     def update_production_schedule(self, req_no, date_str):
@@ -313,20 +266,50 @@ class DataManager:
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 
-    def update_production_complete(self, entry_data_list, out_date, memo):
-        updated_indices = []
-        for entry in entry_data_list:
-            idx = entry["index"]
-            self.df.loc[idx, "시리얼번호"] = entry["serial"]
-            self.df.loc[idx, "렌즈업체"] = entry["lens"]
-            self.df.loc[idx, "출고일"] = out_date
-            self.df.loc[idx, "생산팀 메모"] = memo
-            self.df.loc[idx, "Status"] = "완료"
-            updated_indices.append(str(self.df.loc[idx, "번호"]))
+    # [신규] 시리얼 데이터 조회 함수
+    def get_serial_list(self, req_no, model_name):
+        """특정 요청 번호와 모델명에 해당하는 시리얼 목록 반환"""
+        if self.serial_df.empty: return []
+        
+        # 요청번호와 모델명이 모두 일치하는 행 필터링
+        mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
+        target_data = self.serial_df[mask].copy()
+        
+        # 순번 기준 정렬
+        try:
+            target_data["_sort"] = pd.to_numeric(target_data["순번"])
+            target_data = target_data.sort_values("_sort")
+        except:
+            target_data = target_data.sort_values("순번")
+            
+        return target_data.to_dict('records')
 
-        req_numbers = ",".join(sorted(list(set(updated_indices))))
-        self._add_log("생산 완료", f"번호[{req_numbers}] 출고일({out_date}) 처리 완료.")
-        return self.save_to_excel()
+    # [신규] 시리얼 데이터 저장 함수
+    def update_serial_list(self, req_no, model_name, new_data_list):
+        """특정 요청 번호의 시리얼 데이터를 덮어쓰기"""
+        # 1. 기존 데이터 삭제 (해당 요청번호 & 모델명)
+        if not self.serial_df.empty:
+            mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
+            self.serial_df = self.serial_df[~mask]
+        
+        # 2. 새 데이터 추가
+        if new_data_list:
+            new_rows_df = pd.DataFrame(new_data_list)
+            self.serial_df = pd.concat([self.serial_df, new_rows_df], ignore_index=True)
+            
+        return True
+
+    # [신규] 완료 처리 (개선된 버전)
+    def finalize_production(self, req_no, out_date, memo):
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any():
+            self.df.loc[mask, "출고일"] = out_date
+            self.df.loc[mask, "생산팀 메모"] = memo
+            self.df.loc[mask, "Status"] = "완료"
+            
+            self._add_log("생산 완료", f"번호[{req_no}] 출고일({out_date}) 처리 완료.")
+            return self.save_to_excel()
+        return False, "데이터를 찾을 수 없습니다."
 
     def update_expected_date(self, req_no, new_date):
         mask = self.df["번호"].astype(str) == str(req_no)
@@ -373,5 +356,16 @@ class DataManager:
             details = f"번호[{req_no}] 데이터 삭제"
             self._add_log("데이터 삭제", details)
             self.df = self.df[~mask]
+            
+            # [신규] 관련 시리얼 데이터도 삭제
+            if not self.serial_df.empty:
+                s_mask = self.serial_df["요청번호"].astype(str) == str(req_no)
+                self.serial_df = self.serial_df[~s_mask]
+            
+            # [신규] 관련 메모도 삭제
+            if not self.memo_df.empty:
+                m_mask = self.memo_df["번호"].astype(str) == str(req_no)
+                self.memo_df = self.memo_df[~m_mask]
+
             return self.save_to_excel()
         return False, "삭제할 데이터를 찾을 수 없습니다."

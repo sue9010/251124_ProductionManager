@@ -1,9 +1,7 @@
 # popups/__init__.py
 
-# This file makes the `popups` directory a Python package.
-# We can also use it to make imports easier.
-
-from .settings_popup import SettingsPopup
-from .schedule_popup import SchedulePopup
 from .complete_popup import CompletePopup
+from .schedule_popup import SchedulePopup
+from .serial_input_popup import SerialInputPopup  # [신규] 추가
+from .settings_popup import SettingsPopup
 from .view_popup import ViewPopup
