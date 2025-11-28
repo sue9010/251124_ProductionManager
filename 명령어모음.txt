@@ -15,6 +15,7 @@ Final_Build/
     ├── version.txt         (버전 파일)
     └── config.json
 
+->>>업데이트 시 main 폴더만 다시 빌드해서 production manager_update 폴더에 덮어씌우기 하면 됨
 
 
 

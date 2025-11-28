@@ -75,7 +75,7 @@ class BasePopup(ctk.CTkToplevel):
     def _add_dev_edit_button(self, parent_frame):
         """개발자 모드일 경우 정보 수정 버튼을 추가합니다."""
         if getattr(self.dm, 'is_dev_mode', False):
-            ctk.CTkButton(parent_frame, text="✏️ 정보 수정", width=100, command=self.open_edit_popup, 
+            ctk.CTkButton(parent_frame, text="정보 수정", width=100, command=self.open_edit_popup, 
                           fg_color=COLORS["warning"], hover_color="#D35400").pack(side="right", padx=(0, 5))
 
     def open_edit_popup(self):
@@ -109,11 +109,19 @@ class BasePopup(ctk.CTkToplevel):
             row_frame = ctk.CTkFrame(container, fg_color="transparent")
             row_frame.pack(fill="x", pady=2)
             ctk.CTkLabel(row_frame, text=field, width=120, anchor="w").pack(side="left")
-            entry = ctk.CTkEntry(row_frame, height=28)
-            entry.pack(side="left", fill="x", expand=True)
             
             val = first_row.get(field, "")
-            entry.insert(0, str(val))
+            
+            # [수정] Status 필드는 드롭다운(OptionMenu)으로 생성
+            if field == "Status":
+                status_options = ["생산 접수", "대기", "생산중", "중지", "완료"]
+                entry = ctk.CTkOptionMenu(row_frame, values=status_options, height=28, fg_color=COLORS["bg_medium"], text_color=COLORS["text"], button_color=COLORS["primary"], button_hover_color=COLORS["primary_hover"])
+                entry.set(str(val))
+            else:
+                entry = ctk.CTkEntry(row_frame, height=28)
+                entry.insert(0, str(val))
+            
+            entry.pack(side="left", fill="x", expand=True)
             common_entries[field] = entry
 
         # --- B. 품목별 정보 수정 섹션 ---
