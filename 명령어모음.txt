@@ -1,5 +1,5 @@
 폴더로 파일 생성
-pyinstaller --onedir --noconsole --icon=logo.ico main.py
+pyinstaller --onedir --noconsole --noconfirm --icon=logo.ico main.py
 
 pyinstaller --onefile --noconsole --icon=logo.ico --name=ProductionManager launcher.py
 
