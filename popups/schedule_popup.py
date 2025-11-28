@@ -62,7 +62,7 @@ class SchedulePopup(BasePopup):
         
         self._add_hold_button(header_line, self.req_no, self.current_status)
         
-        # [수정] BasePopup의 공통 버튼 추가 메서드 사용 (상단 헤더)
+        # BasePopup의 공통 버튼 추가 메서드 사용 (상단 헤더)
         self._add_dev_edit_button(header_line)
 
         if self.current_status == "대기":
@@ -94,6 +94,15 @@ class SchedulePopup(BasePopup):
             left.pack(side="left", fill="both", expand=True, padx=10, pady=10)
             ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=FONTS["main_bold"]).pack(anchor="w")
             ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=FONTS["main"], text_color=COLORS["warning"]).pack(anchor="w")
+
+            # [신규] 시리얼 번호가 있으면 표시
+            serials = str(row.get('시리얼번호', '')).strip()
+            if serials == '-' or serials == 'nan': serials = ""
+            
+            if serials:
+                ctk.CTkLabel(left, text=f"S/N: {serials}", 
+                             font=FONTS["small"], text_color=COLORS["text_dim"], 
+                             wraplength=450, justify="left").pack(anchor="w", pady=(5, 0))
 
         footer = ctk.CTkFrame(parent, fg_color="transparent")
         footer.pack(fill="x", padx=20, pady=20)

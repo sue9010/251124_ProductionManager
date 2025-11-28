@@ -50,7 +50,7 @@ class CompletePopup(BasePopup):
         
         self._add_hold_button(header_line, self.req_no, self.current_status)
         
-        # [수정] BasePopup의 공통 버튼 추가 메서드 사용 (상단 헤더)
+        # 개발자 모드 수정 버튼 추가
         self._add_dev_edit_button(header_line)
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
@@ -79,6 +79,17 @@ class CompletePopup(BasePopup):
             ctk.CTkLabel(left, text=f"[{model}] {detail}", font=FONTS["main_bold"]).pack(anchor="w")
             ctk.CTkLabel(left, text=f"수량: {qty}개", font=FONTS["main"], text_color=COLORS["warning"]).pack(anchor="w")
 
+            # [신규] 시리얼 번호 표시 라벨 생성
+            serials = str(row.get('시리얼번호', '')).strip()
+            if serials == '-' or serials == 'nan': serials = ""
+            
+            serial_lbl = ctk.CTkLabel(left, text=f"S/N: {serials}" if serials else "", 
+                                      font=FONTS["small"], text_color=COLORS["text_dim"], 
+                                      wraplength=450, justify="left")
+            # 값이 있을 때만 표시
+            if serials:
+                serial_lbl.pack(anchor="w", pady=(5, 0))
+
             # 우측 버튼
             right = ctk.CTkFrame(card, fg_color="transparent")
             right.pack(side="right", padx=10, pady=10)
@@ -89,8 +100,9 @@ class CompletePopup(BasePopup):
             status_lbl = ctk.CTkLabel(right, text=f"입력됨: {saved_count}/{qty}", font=FONTS["small"], text_color=COLORS["text_dim"])
             status_lbl.pack(side="left", padx=10)
             
+            # [수정] open_serial_popup에 serial_lbl 전달
             btn = ctk.CTkButton(right, text="상세 입력", width=100, 
-                                command=lambda m=model, q=qty, l=status_lbl: self.open_serial_popup(m, q, l))
+                                command=lambda m=model, q=qty, l=status_lbl, sl=serial_lbl: self.open_serial_popup(m, q, l, sl))
             btn.pack(side="left")
 
         # --- 하단 공통 정보 ---
@@ -106,32 +118,43 @@ class CompletePopup(BasePopup):
         ctk.CTkButton(footer, text="취소", command=self.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="right", padx=(0, 5))
 
     def _safe_open_pdf(self, path):
-        # 메시지 박스 띄울 때 Topmost 임시 해제
         self.attributes("-topmost", False)
         self._open_pdf_file(path)
         self.attributes("-topmost", True)
 
-    def open_serial_popup(self, model, qty, status_label):
+    def open_serial_popup(self, model, qty, status_label, serial_label=None):
         def on_save_callback(model_name, data_list):
+            # 1. 데이터 업데이트
             self.dm.update_serial_list(self.req_no, model_name, data_list)
+            
+            # 2. 상태 라벨 업데이트 (입력 개수)
             current_len = len(data_list)
             status_label.configure(text=f"입력됨: {current_len}/{qty}")
             if current_len >= int(qty):
                 status_label.configure(text_color=COLORS["success"])
             else:
                 status_label.configure(text_color=COLORS["warning"])
+                
+            # 3. [신규] 시리얼 번호 라벨 즉시 업데이트
+            if serial_label:
+                # 입력된 데이터에서 시리얼 번호만 추출하여 문자열 생성
+                new_serials = [str(item.get("시리얼번호", "")).strip() for item in data_list 
+                               if item.get("시리얼번호") and str(item.get("시리얼번호")).strip() != ""]
+                joined_text = ", ".join(new_serials)
+                
+                if joined_text:
+                    serial_label.configure(text=f"S/N: {joined_text}")
+                    # 기존에 안 보였던 경우를 위해 pack (이미 되어있어도 안전함)
+                    serial_label.pack(anchor="w", pady=(5, 0))
+                else:
+                    serial_label.configure(text="")
+                    serial_label.pack_forget()
 
-        # 상세 입력 팝업은 Toplevel이므로 자동으로 위에 뜸 (Transient 설정됨)
-        # 하지만 혹시 모르니 이 팝업의 topmost를 잠시 꺼둘 필요는 없음 (입력 팝업이 이 팝업 위에 뜨므로)
         SerialInputPopup(self, self.dm, self.req_no, model, qty, on_save_callback)
 
     def save_all(self):
-        # [핵심 수정] 메시지 박스가 팝업 뒤에 숨지 않도록 Topmost 잠시 해제
         self.attributes("-topmost", False)
-        
         answer = messagebox.askyesno("완료 처리", "모든 데이터를 저장하고 '생산 완료' 처리하시겠습니까?", parent=self)
-        
-        # 메시지 박스가 닫히면 일단 다시 Topmost 복구 (취소했을 경우를 대비)
         self.attributes("-topmost", True)
         
         if answer:
@@ -139,7 +162,6 @@ class CompletePopup(BasePopup):
                 success, msg = self.dm.finalize_production(self.req_no, self.e_date.get())
                 
                 if success:
-                    # 성공 메시지 띄울 때도 Topmost 해제 필요
                     self.attributes("-topmost", False)
                     messagebox.showinfo("성공", "생산 완료 처리되었습니다.", parent=self)
                     self.destroy()

@@ -75,7 +75,7 @@ class BasePopup(ctk.CTkToplevel):
     def _add_dev_edit_button(self, parent_frame):
         """개발자 모드일 경우 정보 수정 버튼을 추가합니다."""
         if getattr(self.dm, 'is_dev_mode', False):
-            ctk.CTkButton(parent_frame, text="정보 수정", width=100, command=self.open_edit_popup, 
+            ctk.CTkButton(parent_frame, text="✏️ 정보 수정", width=100, command=self.open_edit_popup, 
                           fg_color=COLORS["warning"], hover_color="#D35400").pack(side="right", padx=(0, 5))
 
     def open_edit_popup(self):
@@ -83,13 +83,11 @@ class BasePopup(ctk.CTkToplevel):
         if not getattr(self.dm, 'is_dev_mode', False):
             return
 
-        # 1. 현재 요청 번호에 해당하는 모든 행의 인덱스를 찾습니다.
         target_indices = self.dm.df[self.dm.df["번호"].astype(str) == str(self.req_no)].index
         if len(target_indices) == 0:
             messagebox.showerror("오류", "데이터를 찾을 수 없습니다.", parent=self)
             return
         
-        # 첫 번째 행을 기준으로 공통 정보를 가져옵니다.
         first_row = self.dm.df.loc[target_indices[0]]
 
         edit_win = ctk.CTkToplevel(self)
@@ -122,7 +120,7 @@ class BasePopup(ctk.CTkToplevel):
         ctk.CTkFrame(container, height=2, fg_color=COLORS["border"]).pack(fill="x", pady=20)
         ctk.CTkLabel(container, text="■ 품목별 상세 정보", font=FONTS["header"]).pack(anchor="w", pady=(0, 10))
 
-        item_entries = [] # 리스트에 각 품목의 엔트리 위젯들을 딕셔너리로 저장
+        item_entries = []
 
         for idx in target_indices:
             row_data = self.dm.df.loc[idx]
@@ -130,7 +128,6 @@ class BasePopup(ctk.CTkToplevel):
             item_card = ctk.CTkFrame(container, fg_color=COLORS["bg_dark"])
             item_card.pack(fill="x", pady=5, padx=5)
             
-            # 행 1: 모델명
             r1 = ctk.CTkFrame(item_card, fg_color="transparent")
             r1.pack(fill="x", padx=5, pady=2)
             ctk.CTkLabel(r1, text="모델명:", width=60, anchor="w").pack(side="left")
@@ -138,7 +135,6 @@ class BasePopup(ctk.CTkToplevel):
             e_model.insert(0, str(row_data.get("모델명", "")))
             e_model.pack(side="left", fill="x", expand=True)
             
-            # 행 2: 상세, 수량
             r2 = ctk.CTkFrame(item_card, fg_color="transparent")
             r2.pack(fill="x", padx=5, pady=2)
             
@@ -160,27 +156,23 @@ class BasePopup(ctk.CTkToplevel):
             })
             
         def save_changes():
-            # 1. 공통 정보 업데이트 (해당 요청번호를 가진 모든 행에 일괄 적용)
             new_common_data = {f: e.get() for f, e in common_entries.items()}
             
             for idx in target_indices:
                 for col, val in new_common_data.items():
                     self.dm.df.loc[idx, col] = val
             
-            # 2. 품목별 정보 업데이트 (각 행별로 개별 적용)
             for item in item_entries:
                 idx = item["index"]
                 self.dm.df.loc[idx, "모델명"] = item["model"].get()
                 self.dm.df.loc[idx, "상세"] = item["detail"].get()
                 
-                # 수량은 숫자로 변환 시도, 실패 시 문자열 그대로 저장
                 qty_val = item["qty"].get()
                 try:
                     self.dm.df.loc[idx, "수량"] = int(qty_val)
                 except:
                     self.dm.df.loc[idx, "수량"] = qty_val
             
-            # 3. 엑셀 저장
             edit_win.attributes("-topmost", False)
             self.attributes("-topmost", False)
             
@@ -189,7 +181,7 @@ class BasePopup(ctk.CTkToplevel):
             if success:
                 messagebox.showinfo("성공", "데이터가 수정되었습니다.", parent=edit_win)
                 edit_win.destroy()
-                self.destroy() # 현재 상세 팝업도 닫아서 데이터 갱신 유도
+                self.destroy()
                 if self.refresh_callback:
                     self.refresh_callback()
             else:
@@ -468,7 +460,8 @@ class BasePopup(ctk.CTkToplevel):
         win.transient(self) 
         win.title("생산 재개")
         
-        width, height = 350, 180
+        # [수정] 팝업 크기 확장
+        width, height = 500, 450
         screen_width = win.winfo_screenwidth()
         screen_height = win.winfo_screenheight()
         x = (screen_width / 2) - (width / 2)
@@ -479,12 +472,35 @@ class BasePopup(ctk.CTkToplevel):
         win.attributes("-topmost", True)
         win.bind("<Escape>", lambda e: win.destroy())
         
-        ctk.CTkLabel(win, text=f"번호 [{req_no}] 생산을 재개합니다.\n새로운 출고예정일을 입력하세요.", font=FONTS["main"]).pack(pady=(20, 10))
+        ctk.CTkLabel(win, text=f"번호 [{req_no}] 생산을 재개합니다.\n새로운 출고예정일을 입력하세요.", font=FONTS["main_bold"]).pack(pady=(20, 10))
         
-        entry = ctk.CTkEntry(win, width=150)
+        # 날짜 입력
+        entry = ctk.CTkEntry(win, width=200)
         entry.pack(pady=5)
         entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         
+        # [신규] 품목 정보 및 시리얼 번호 표시 영역
+        ctk.CTkLabel(win, text="품목 리스트", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
+        scroll = ctk.CTkScrollableFrame(win, height=150, corner_radius=6, fg_color=COLORS["bg_medium"])
+        scroll.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+        
+        target_rows = self.dm.df[self.dm.df["번호"].astype(str) == str(req_no)]
+        
+        for _, row in target_rows.iterrows():
+            item_frame = ctk.CTkFrame(scroll, fg_color="transparent")
+            item_frame.pack(fill="x", pady=2)
+            
+            # 모델명 및 수량
+            model_info = f"[{row.get('모델명')}] {row.get('상세')} ({row.get('수량')}개)"
+            ctk.CTkLabel(item_frame, text=model_info, font=FONTS["main_bold"], anchor="w").pack(fill="x")
+            
+            # 시리얼 번호
+            serials = str(row.get('시리얼번호', '')).strip()
+            if serials == '-' or serials == 'nan': serials = ""
+            if serials:
+                ctk.CTkLabel(item_frame, text=f"S/N: {serials}", font=FONTS["small"], text_color=COLORS["text_dim"], 
+                             wraplength=420, justify="left", anchor="w").pack(fill="x")
+
         def confirm():
             new_date = entry.get()
             if not new_date:
@@ -499,7 +515,7 @@ class BasePopup(ctk.CTkToplevel):
             else:
                 messagebox.showerror("실패", msg, parent=win)
             
-        ctk.CTkButton(win, text="저장 및 생산 재개", command=confirm, fg_color=COLORS["primary"], width=120).pack(pady=10)
+        ctk.CTkButton(win, text="저장 및 생산 재개", command=confirm, fg_color=COLORS["primary"], width=150).pack(pady=10)
         win.focus_force() 
         entry.focus_set()
 
