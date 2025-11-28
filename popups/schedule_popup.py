@@ -1,4 +1,3 @@
-# popups/schedule_popup.py
 from datetime import datetime
 from tkinter import messagebox
 
@@ -27,12 +26,10 @@ class SchedulePopup(BasePopup):
         elif self.current_status == "대기":
             title = f"생산 대기 관리 - 번호 [{req_no}]"
 
-        # [핵심] req_no를 전달하여 사이드바 활성화
         super().__init__(parent, data_manager, refresh_callback, title=title, geometry="800x650", req_no=req_no)
         self.create_widgets()
 
     def create_widgets(self):
-        # [수정] 모든 위젯은 self.content_frame (왼쪽 영역)에 배치해야 함
         parent = self.content_frame
 
         file_path = self.first_row.get("파일경로", "-") 
@@ -45,11 +42,9 @@ class SchedulePopup(BasePopup):
             "대기사유": self.first_row.get("대기사유", "-")
         }
 
-        # 상단 정보 프레임
         info_frame = ctk.CTkFrame(parent, fg_color="transparent")
         info_frame.pack(fill="x", padx=20, pady=10)
 
-        # 헤더 라인
         header_line = ctk.CTkFrame(info_frame, fg_color="transparent")
         header_line.pack(fill="x", pady=(0, 10))
         
@@ -61,12 +56,14 @@ class SchedulePopup(BasePopup):
             
         ctk.CTkLabel(header_line, text=title_text, font=FONTS["title"]).pack(side="left")
         
-        # 버튼 배치
         if file_path and str(file_path) != "-":
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
         self._add_hold_button(header_line, self.req_no, self.current_status)
+        
+        # [수정] BasePopup의 공통 버튼 추가 메서드 사용 (상단 헤더)
+        self._add_dev_edit_button(header_line)
 
         if self.current_status == "대기":
             pass
@@ -86,7 +83,6 @@ class SchedulePopup(BasePopup):
             ctk.CTkLabel(grid_frame, text="⚠️ 대기 사유", font=FONTS["main_bold"], text_color=COLORS["warning"]).grid(row=2, column=0, padx=10, pady=5, sticky="w")
             ctk.CTkLabel(grid_frame, text=str(common_info["대기사유"]), font=FONTS["main_bold"], text_color=COLORS["text"]).grid(row=2, column=1, padx=10, pady=5, sticky="w")
 
-        # [수정 포인트] 아래 위젯들이 self가 아닌 parent(self.content_frame)에 붙어야 함
         ctk.CTkLabel(parent, text="품목 리스트", font=FONTS["header"]).pack(anchor="w", padx=20, pady=(20, 5))
         scroll_frame = ctk.CTkScrollableFrame(parent, height=200, corner_radius=10)
         scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
@@ -99,7 +95,6 @@ class SchedulePopup(BasePopup):
             ctk.CTkLabel(left, text=f"[{row.get('모델명')}] {row.get('상세')}", font=FONTS["main_bold"]).pack(anchor="w")
             ctk.CTkLabel(left, text=f"수량: {row.get('수량')}", font=FONTS["main"], text_color=COLORS["warning"]).pack(anchor="w")
 
-        # 하단 입력 프레임도 parent에 붙임
         footer = ctk.CTkFrame(parent, fg_color="transparent")
         footer.pack(fill="x", padx=20, pady=20)
         
@@ -138,7 +133,6 @@ class SchedulePopup(BasePopup):
         reason_window = ctk.CTkToplevel(self)
         reason_window.title("생산 대기 설정")
         
-        # Center the small popup relative to screen
         width, height = 400, 200
         screen_width = reason_window.winfo_screenwidth()
         screen_height = reason_window.winfo_screenheight()

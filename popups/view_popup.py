@@ -1,4 +1,3 @@
-# popups/view_popup.py
 from tkinter import messagebox
 
 import customtkinter as ctk
@@ -6,7 +5,7 @@ import customtkinter as ctk
 from styles import COLORS, FONTS
 
 from .base_popup import BasePopup
-from .serial_input_popup import SerialInputPopup  # [신규] SerialInputPopup 임포트
+from .serial_input_popup import SerialInputPopup
 
 
 class ViewPopup(BasePopup):
@@ -21,12 +20,10 @@ class ViewPopup(BasePopup):
         self.row0 = self.target_rows.iloc[0]
         self.current_status = str(self.row0.get("Status", ""))
         
-        # [수정] req_no 전달
         super().__init__(parent, data_manager, refresh_callback, title=f"출고 완료 상세 정보 - 번호 [{req_no}]", geometry="900x650", req_no=req_no)
         self.create_widgets()
 
     def create_widgets(self):
-        # [수정] self.content_frame 사용
         parent = self.content_frame
 
         file_path = self.row0.get("파일경로", "-")
@@ -44,6 +41,9 @@ class ViewPopup(BasePopup):
                           command=lambda: self._open_pdf_file(file_path)).pack(side="right")
         
         self._add_hold_button(header_line, self.req_no, self.current_status)
+        
+        # [수정] BasePopup의 공통 버튼 추가 메서드 사용 (상단 헤더)
+        self._add_dev_edit_button(header_line)
 
         grid_frame = ctk.CTkFrame(header_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
@@ -54,8 +54,6 @@ class ViewPopup(BasePopup):
             ("출고요청일", self.row0.get("출고요청일", "-")),
             ("출고예정일", self.row0.get("출고예정일", "-")),
             ("출고일", self.row0.get("출고일", "-")),
-            # [수정] 생산팀 메모 표시 제거
-            # ("생산팀 메모", self.row0.get("생산팀 메모", "-")),
             ("기타요청사항", self.row0.get("기타요청사항", "-")),
             ("업체별 특이사항", self.row0.get("업체별 특이사항", "-"))
         ]
@@ -86,7 +84,6 @@ class ViewPopup(BasePopup):
             card = ctk.CTkFrame(scroll_frame, fg_color=COLORS["bg_medium"], corner_radius=6)
             card.pack(fill="x", pady=5, padx=5)
 
-            # 카드 내용을 담을 프레임 (좌측)
             content = ctk.CTkFrame(card, fg_color="transparent")
             content.pack(side="left", fill="both", expand=True, padx=15, pady=10)
 
@@ -95,7 +92,6 @@ class ViewPopup(BasePopup):
             model_info = f"[{model_name}] {row.get('상세')}"
             ctk.CTkLabel(content, text=model_info, font=FONTS["main_bold"]).pack(anchor="w")
 
-            # 상세 정보 레이아웃
             top_info_frame = ctk.CTkFrame(content, fg_color="transparent")
             top_info_frame.pack(fill="x", pady=(5, 0))
             
@@ -120,14 +116,12 @@ class ViewPopup(BasePopup):
                 font=FONTS["main"], 
                 fg_color=COLORS["border"], 
                 corner_radius=4,
-                wraplength=650,  # 버튼 공간 확보를 위해 길이 조정
+                wraplength=650,
                 justify="left",
                 anchor="w"
             ).pack(fill="x", pady=(5, 0), ipadx=5)
 
-            # [신규] 우측 버튼 프레임
             btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-            # [수정] anchor="ne"를 추가하여 버튼을 우측 상단으로 이동
             btn_frame.pack(side="right", anchor="ne", padx=10, pady=10)
 
             ctk.CTkButton(
@@ -157,38 +151,24 @@ class ViewPopup(BasePopup):
             else:
                 messagebox.showerror("삭제 실패", msg, parent=self)
 
-    # [신규] 상세 보기 팝업 오픈 메서드
     def open_serial_popup(self, model, qty):
         popup = None
-
-        # ViewPopup에서는 데이터 수정 후 UI 갱신이 필요 없으므로 빈 콜백 전달 (혹은 재조회 로직 추가 가능)
         def on_save_callback(model_name, data_list):
-            # [수정] 알림창이 가려지는 현상 방지를 위해 팝업들의 Topmost 속성 잠시 해제
-            if popup:
-                popup.attributes("-topmost", False)
+            if popup: popup.attributes("-topmost", False)
             self.attributes("-topmost", False)
 
-            # 1. 데이터 매니저 업데이트 (메모리 상) - Serial_Data 및 Data 시트(시리얼/렌즈 컬럼) 동기화
             self.dm.update_serial_list(self.req_no, model_name, data_list)
-            
-            # 2. 엑셀 파일에 즉시 저장 (Data 시트 반영을 위해 필수)
             success, msg = self.dm.save_to_excel()
             
-            # 메시지 박스의 부모를 현재 조작 중인 팝업(popup)으로 설정하여 그 위에 뜨게 함
             target_parent = popup if popup else self
 
             if success:
-                # 3. 성공 시 메인 뷰 갱신 및 팝업 닫기
-                if self.refresh_callback:
-                    self.refresh_callback()
+                if self.refresh_callback: self.refresh_callback()
                 messagebox.showinfo("저장 완료", "수정된 내용이 저장되었습니다.", parent=target_parent)
                 self.destroy()
             else:
                 messagebox.showerror("저장 실패", msg, parent=target_parent)
-                
-                # 실패 시에는 창이 닫히지 않으므로 Topmost 속성 복구
-                if popup:
-                    popup.attributes("-topmost", True)
+                if popup: popup.attributes("-topmost", True)
                 self.attributes("-topmost", True)
 
         popup = SerialInputPopup(self, self.dm, self.req_no, model, qty, on_save_callback)

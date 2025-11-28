@@ -23,7 +23,7 @@ class DataManager:
         self.current_theme = "Dark"  
         self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
         
-        # [신규] 개발자 모드 상태 초기화
+        # [신규] 개발자 모드 상태 초기화 (이 부분이 없으면 에러가 발생합니다)
         self.is_dev_mode = False
         
         self.load_config()
@@ -65,10 +65,7 @@ class DataManager:
             
             # Log 정리
             original_log_count = len(self.log_df)
-            # 일시 컬럼이 문자열일 수 있으므로 변환 후 비교
             temp_log_dates = pd.to_datetime(self.log_df['일시'], errors='coerce')
-            # NaT(변환 실패)는 삭제하지 않거나 삭제할 수 있음. 여기서는 유효한 날짜만 비교
-            # 비교 가능한 행만 남기기 위해 인덱싱 사용
             self.log_df = self.log_df[temp_log_dates >= cutoff_date]
             deleted_log = original_log_count - len(self.log_df)
             
@@ -81,7 +78,6 @@ class DataManager:
             # 변경사항 저장
             self.save_to_excel()
             
-            # [수정] 삭제 기준일을 메시지에 포함하여 사용자 혼동 방지
             cutoff_str = cutoff_date.strftime("%Y-%m-%d")
             return True, f"로그 정리 완료 (기준일: {cutoff_str} 이전)\n- 일반 로그 삭제: {deleted_log}건\n- 메모 로그 삭제: {deleted_memo_log}건"
         except Exception as e:
@@ -110,12 +106,9 @@ class DataManager:
                 mask_memo = self.memo_df["번호"].astype(str) == str(req_no)
                 self.memo_df = self.memo_df[~mask_memo]
                 
-            # 4. Memo Log 삭제 -> [수정] 삭제하지 않음 (이력 보존)
-            # if not self.memo_log_df.empty:
-            #     mask_memolog = self.memo_log_df["요청번호"].astype(str) == str(req_no)
-            #     self.memo_log_df = self.memo_log_df[~mask_memolog]
+            # 4. Memo Log 삭제 -> 삭제하지 않음 (이력 보존)
 
-            # 5. 작업 로그 남기기 (삭제 사실은 남김)
+            # 5. 작업 로그 남기기
             self._add_log("강제 삭제", f"[Dev] 번호[{req_no}] 및 연관 데이터 영구 삭제")
             
             return self.save_to_excel()
@@ -182,7 +175,6 @@ class DataManager:
                     # [신규] 5. Serial Data 시트
                     if Config.SHEET_SERIAL in xls.sheet_names:
                         self.serial_df = pd.read_excel(xls, Config.SHEET_SERIAL)
-                        # 컬럼 타입 강제 변환 (요청번호 문자열로)
                         if not self.serial_df.empty:
                             self.serial_df["요청번호"] = self.serial_df["요청번호"].astype(str)
                     else:
@@ -225,7 +217,6 @@ class DataManager:
             
         if self.memo_log_df.empty: self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
         
-        # [신규] 시리얼 데이터 전처리
         if self.serial_df.empty:
             self.serial_df = pd.DataFrame(columns=Config.SERIAL_COLUMNS)
         else:
@@ -242,7 +233,6 @@ class DataManager:
                 self.log_df.to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
                 self.memo_df.to_excel(writer, sheet_name=Config.SHEET_MEMO, index=False)
                 self.memo_log_df.to_excel(writer, sheet_name=Config.SHEET_MEMO_LOG, index=False)
-                # [신규] 시리얼 데이터 시트 저장
                 self.serial_df.to_excel(writer, sheet_name=Config.SHEET_SERIAL, index=False)
             
             self.load_data()
@@ -338,15 +328,12 @@ class DataManager:
         if self.df.empty: return self.df
         filtered_df = self.df.copy()
         
-        # [수정] 검색어가 있을 경우 상태 필터를 무시하고 전체 데이터에서 검색하도록 변경
-        # 검색어가 없을 때만 상태 필터링을 적용합니다.
         if not search_keyword:
             if status_filter_list is not None and len(status_filter_list) > 0:
                 filtered_df = filtered_df[filtered_df["Status"].astype(str).isin(status_filter_list)]
             elif status_filter_list is not None and len(status_filter_list) == 0:
                 return filtered_df.iloc[0:0]
         
-        # 검색어 필터링
         if search_keyword:
             search_cols = [col for col in Config.SEARCH_TARGET_COLS if col in filtered_df.columns]
             if search_cols:
@@ -372,76 +359,52 @@ class DataManager:
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
 
-    # [신규] 시리얼 데이터 조회 함수
     def get_serial_list(self, req_no, model_name):
-        """특정 요청 번호와 모델명에 해당하는 시리얼 목록 반환"""
         if self.serial_df.empty: return []
-        
-        # 요청번호와 모델명이 모두 일치하는 행 필터링
         mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
         target_data = self.serial_df[mask].copy()
-        
-        # 순번 기준 정렬
         try:
             target_data["_sort"] = pd.to_numeric(target_data["순번"])
             target_data = target_data.sort_values("_sort")
         except:
             target_data = target_data.sort_values("순번")
-            
         return target_data.to_dict('records')
 
-    # [신규] 시리얼 데이터 저장 함수 (수정됨)
     def update_serial_list(self, req_no, model_name, new_data_list):
-        """특정 요청 번호의 시리얼 데이터를 덮어쓰기 및 Data 시트 동기화"""
-        # 1. 기존 데이터 삭제 (해당 요청번호 & 모델명)
         if not self.serial_df.empty:
             mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
             self.serial_df = self.serial_df[~mask]
-        
-        # 2. 새 데이터 추가
         if new_data_list:
             new_rows_df = pd.DataFrame(new_data_list)
             self.serial_df = pd.concat([self.serial_df, new_rows_df], ignore_index=True)
             
-        # [신규 로직] 3. Data 시트(self.df)의 '시리얼번호' 컬럼에 쉼표로 합쳐서 업데이트
-        # 현재 입력된 리스트에서 시리얼만 추출 (빈 값 제외)
         serial_list = [
             str(item.get("시리얼번호", "")).strip()
             for item in new_data_list
             if item.get("시리얼번호") and str(item.get("시리얼번호")).strip() != "" and str(item.get("시리얼번호")) != "-"
         ]
-        
         joined_serials = ", ".join(serial_list)
 
-        # [추가 로직] 4. Data 시트(self.df)의 '렌즈업체' 컬럼도 업데이트 (Unique 값만)
         lens_list = [
             str(item.get("렌즈업체", "")).strip()
             for item in new_data_list
             if item.get("렌즈업체") and str(item.get("렌즈업체")).strip() != "" and str(item.get("렌즈업체")) != "-"
         ]
-        
-        # 중복 제거 및 정렬
         unique_lenses = sorted(list(set(lens_list)))
         joined_lenses = ", ".join(unique_lenses)
         
-        # 메인 데이터프레임에서 해당 행 찾기 (번호 AND 모델명)
         mask_main = (self.df["번호"].astype(str) == str(req_no)) & (self.df["모델명"] == model_name)
-        
         if mask_main.any():
             self.df.loc[mask_main, "시리얼번호"] = joined_serials
             self.df.loc[mask_main, "렌즈업체"] = joined_lenses
             
         return True
 
-    # [신규] 완료 처리 (개선된 버전)
     def finalize_production(self, req_no, out_date):
-        """생산 완료 처리 (메모 저장 로직 제거)"""
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
             self.df.loc[mask, "출고일"] = out_date
-            # self.df.loc[mask, "생산팀 메모"] = memo # [수정] 제거됨
             self.df.loc[mask, "Status"] = "완료"
-            
             self._add_log("생산 완료", f"번호[{req_no}] 출고일({out_date}) 처리 완료.")
             return self.save_to_excel()
         return False, "데이터를 찾을 수 없습니다."
@@ -492,12 +455,10 @@ class DataManager:
             self._add_log("데이터 삭제", details)
             self.df = self.df[~mask]
             
-            # [신규] 관련 시리얼 데이터도 삭제
             if not self.serial_df.empty:
                 s_mask = self.serial_df["요청번호"].astype(str) == str(req_no)
                 self.serial_df = self.serial_df[~s_mask]
             
-            # [신규] 관련 메모도 삭제
             if not self.memo_df.empty:
                 m_mask = self.memo_df["번호"].astype(str) == str(req_no)
                 self.memo_df = self.memo_df[~m_mask]

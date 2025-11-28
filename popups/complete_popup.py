@@ -15,7 +15,6 @@ class CompletePopup(BasePopup):
         self.target_rows = data_manager.df[data_manager.df["번호"].astype(str) == str(req_no)]
 
         if self.target_rows.empty:
-            # 여기서는 창이 생성되기 전이므로 parent(메인윈도우) 기준으로 메시지를 띄움
             messagebox.showerror("오류", "데이터를 찾을 수 없습니다.")
             return
             
@@ -46,12 +45,13 @@ class CompletePopup(BasePopup):
         ctk.CTkLabel(header_line, text=f"생산 완료 처리 (번호: {self.req_no})", font=FONTS["title"]).pack(side="left")
 
         if file_path and str(file_path) != "-":
-            # PDF 보기 버튼: BasePopup의 메서드 사용 시에도 Z-order 이슈가 있을 수 있어 래핑 필요하나, 
-            # 일단 메인 기능(완료 처리) 위주로 수정
             ctk.CTkButton(header_line, text="PDF 보기", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"],
                           command=lambda: self._safe_open_pdf(file_path)).pack(side="right")
         
         self._add_hold_button(header_line, self.req_no, self.current_status)
+        
+        # [수정] BasePopup의 공통 버튼 추가 메서드 사용 (상단 헤더)
+        self._add_dev_edit_button(header_line)
 
         grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
@@ -102,8 +102,6 @@ class CompletePopup(BasePopup):
         self.e_date.pack(side="left", padx=(0, 20))
         self.e_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
 
-        # [수정] 생산팀 메모 입력란 제거
-        
         ctk.CTkButton(footer, text="최종 완료 처리", command=self.save_all, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=150).pack(side="right")
         ctk.CTkButton(footer, text="취소", command=self.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="right", padx=(0, 5))
 
@@ -138,7 +136,6 @@ class CompletePopup(BasePopup):
         
         if answer:
             try:
-                # [수정] finalize_production 호출 시 memo 인자 제거
                 success, msg = self.dm.finalize_production(self.req_no, self.e_date.get())
                 
                 if success:

@@ -48,7 +48,6 @@ class BasePopup(ctk.CTkToplevel):
             self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
             self.content_frame.grid(row=0, column=0, sticky="nsew")
 
-            # [수정] fg_color에 문자열 "bg_medium"이 아닌 COLORS["bg_medium"] 값을 전달해야 함
             self.sidebar_frame = ctk.CTkFrame(self.main_container, fg_color=COLORS["bg_medium"], corner_radius=0, width=SIDEBAR_WIDTH)
             self.sidebar_frame.grid(row=0, column=1, sticky="nsew")
             self.sidebar_frame.grid_propagate(False)
@@ -69,6 +68,76 @@ class BasePopup(ctk.CTkToplevel):
         x = (screen_width / 2) - (width / 2)
         y = (screen_height / 2) - (height / 2)
         self.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+
+    # ----------------------------------------------------------------
+    # Shared Helper Methods
+    # ----------------------------------------------------------------
+    def _add_dev_edit_button(self, parent_frame):
+        """개발자 모드일 경우 정보 수정 버튼을 추가합니다."""
+        if getattr(self.dm, 'is_dev_mode', False):
+            ctk.CTkButton(parent_frame, text="✏️ 정보 수정", width=100, command=self.open_edit_popup, 
+                          fg_color=COLORS["warning"], hover_color="#D35400").pack(side="right", padx=(0, 5))
+
+    def open_edit_popup(self):
+        """[Dev] 공통 정보 수정 팝업"""
+        if not getattr(self.dm, 'is_dev_mode', False):
+            return
+
+        # 현재 데이터 조회
+        target_rows = self.dm.df[self.dm.df["번호"].astype(str) == str(self.req_no)]
+        if target_rows.empty:
+            messagebox.showerror("오류", "데이터를 찾을 수 없습니다.", parent=self)
+            return
+        row_data = target_rows.iloc[0]
+
+        edit_win = ctk.CTkToplevel(self)
+        edit_win.title(f"[DEV] 데이터 수정 - {self.req_no}")
+        edit_win.geometry("500x600")
+        edit_win.transient(self)
+        edit_win.attributes("-topmost", True)
+        
+        fields = ["업체명", "출고요청일", "출고예정일", "출고일", "Status", "기타요청사항", "업체별 특이사항", "대기사유"]
+        entries = {}
+        
+        container = ctk.CTkScrollableFrame(edit_win)
+        container.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        for field in fields:
+            row_frame = ctk.CTkFrame(container, fg_color="transparent")
+            row_frame.pack(fill="x", pady=5)
+            ctk.CTkLabel(row_frame, text=field, width=100, anchor="w").pack(side="left")
+            entry = ctk.CTkEntry(row_frame, width=250)
+            entry.pack(side="left", fill="x", expand=True)
+            # 초기값 설정
+            val = row_data.get(field, "")
+            entry.insert(0, str(val))
+            entries[field] = entry
+            
+        def save_changes():
+            new_data = {field: entry.get() for field, entry in entries.items()}
+            
+            mask = self.dm.df["번호"].astype(str) == str(self.req_no)
+            if mask.any():
+                for col, val in new_data.items():
+                    self.dm.df.loc[mask, col] = val
+                
+                edit_win.attributes("-topmost", False)
+                self.attributes("-topmost", False) # 부모창 Topmost 해제
+                
+                success, msg = self.dm.save_to_excel()
+                
+                if success:
+                    messagebox.showinfo("성공", "데이터가 수정되었습니다.", parent=edit_win)
+                    edit_win.destroy()
+                    self.destroy() # 현재 팝업도 닫아서 갱신 유도
+                    if self.refresh_callback:
+                        self.refresh_callback()
+                else:
+                    messagebox.showerror("실패", msg, parent=edit_win)
+                    edit_win.attributes("-topmost", True)
+                    self.attributes("-topmost", True) # 복구
+
+        ctk.CTkButton(edit_win, text="저장", command=save_changes, fg_color=COLORS["primary"]).pack(pady=20)
 
     # ----------------------------------------------------------------
     # Memo Sidebar Logic
@@ -174,14 +243,12 @@ class BasePopup(ctk.CTkToplevel):
         card = ctk.CTkFrame(self.memo_scroll, fg_color=COLORS["bg_dark"], corner_radius=6)
         card.pack(fill="x", pady=5, padx=5)
 
-        # [Header] Date | User (PC)
         header_frame = ctk.CTkFrame(card, fg_color="transparent", height=20)
         header_frame.pack(fill="x", padx=10, pady=(8, 2))
 
         header_text = f"{memo['일시']} | {memo['작업자']} ({memo['PC정보']})"
         ctk.CTkLabel(header_frame, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
 
-        # [Content]
         content_text = memo['내용']
         
         if "[파일첨부]" in content_text and "(경로:" in content_text:
@@ -189,7 +256,6 @@ class BasePopup(ctk.CTkToplevel):
                 start_idx = content_text.find("(경로:") + 5
                 end_idx = content_text.find(")", start_idx)
                 file_path = content_text[start_idx:end_idx].strip()
-                
                 display_text = content_text.split('\n')[0] 
                 
                 btn_file = ctk.CTkButton(
@@ -209,12 +275,9 @@ class BasePopup(ctk.CTkToplevel):
             content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
             content_lbl.pack(anchor="w", padx=10, pady=(0, 0))
 
-        # [Footer] Buttons (Right Aligned)
-        # [수정] 높이 문제 해결을 위해 height를 제거하거나 넉넉하게 줌
         footer_frame = ctk.CTkFrame(card, fg_color="transparent")
         footer_frame.pack(fill="x", padx=10, pady=(5, 8))
 
-        # [수정] 삭제 버튼 (x) - anchor="center" 추가
         btn_del = ctk.CTkButton(
             footer_frame, 
             text="×", 
@@ -228,40 +291,29 @@ class BasePopup(ctk.CTkToplevel):
         )
         btn_del.pack(side="right", padx=(5, 0), anchor="center")
 
-        # [수정] 저장된 '확인' 상태값 불러오기
         is_checked = str(memo.get('확인', 'N')) == 'Y'
-        
-        # [수정] 확인 상태에 따라 텍스트와 색상 변경
         check_text = "✓✓" if is_checked else "✓"
         check_fg_color = COLORS["transparent"] if is_checked else "transparent"
-        check_text_color = COLORS["text_dim"] if is_checked else COLORS["text_dim"] # 확인됨일때 텍스트는 배경색(어두움), 미확인일때는 딤처리
+        check_text_color = COLORS["text_dim"] if is_checked else COLORS["text_dim"]
 
-        # [수정] 확인 버튼 - anchor="center" 추가
         btn_check = ctk.CTkButton(
             footer_frame,
             text=check_text,
-            width=20, # 텍스트 길이에 맞춰 너비 조정
+            width=20,
             height=20,
             fg_color=check_fg_color,
-            hover_color=COLORS["bg_light_hover"] if not is_checked else COLORS["bg_light_hover"], # 이미 확인된건 호버시 약간 어둡게?
+            hover_color=COLORS["bg_light_hover"] if not is_checked else COLORS["bg_light_hover"],
             text_color=check_text_color,
-            font=(FONT_FAMILY, 16, "bold") # 폰트 사이즈 조정
+            font=(FONT_FAMILY, 16, "bold")
         )
-        # [수정] 토글 함수에 memo 객체 전달
         btn_check.configure(command=lambda b=btn_check, m=memo: self._toggle_check(b, m))
         btn_check.pack(side="right", anchor="center")
 
     def _toggle_check(self, btn, memo):
-        """확인 버튼 토글 및 DB 저장 로직"""
         current_status = str(memo.get('확인', 'N'))
         new_status = 'N' if current_status == 'Y' else 'Y'
-        
-        # DataManager를 통해 엑셀 업데이트
         success, msg = self.dm.update_memo_check(self.req_no, memo['일시'], memo['내용'], new_status)
-        
         if success:
-            # 업데이트 성공 시 리스트 전체 리로딩 (데이터 동기화를 위해)
-            # 버튼 색상만 바꿀 수도 있지만, 확실한 동기화를 위해 새로고침 권장
             self._refresh_memo_list()
         else:
             messagebox.showerror("오류", f"상태 변경 실패: {msg}", parent=self)
@@ -278,7 +330,6 @@ class BasePopup(ctk.CTkToplevel):
         if not path or str(path).strip() == "-" or str(path).strip() == "":
             messagebox.showinfo("알림", "등록된 파일 경로가 없습니다.", parent=self)
             return
-        
         if os.path.exists(path):
             try:
                 os.startfile(path)
