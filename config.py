@@ -19,8 +19,11 @@ class Config:
             print(f"설정 폴더 생성 실패: {e}")
 
     CONFIG_FILENAME = os.path.join(APP_DIR, "config.json")
-    APP_VERSION = "1.2.0" 
+    APP_VERSION = "1.2.0" # 버전 업 (Dev Mode 추가)
     
+    # [보안] 개발자 모드 비밀번호 (실무에 맞게 변경하세요)
+    DEV_PASSWORD = "admin" 
+
     # ---------------------------------------------------------
     # [업무용 기본 경로 설정]
     # ---------------------------------------------------------
@@ -42,7 +45,7 @@ class Config:
     SHEET_LOG = "Log"
     SHEET_MEMO = "Memos"
     SHEET_MEMO_LOG = "Memo Log"
-    SHEET_SERIAL = "Serial_Data" # [신규] 시리얼 번호 상세 시트
+    SHEET_SERIAL = "Serial_Data" 
 
     # 엑셀 헤더 정의 (Data 시트)
     COLUMNS = [
@@ -66,5 +69,4 @@ class Config:
         "출고요청일", "출고예정일", "Status"
     ]
     
-    # [수정] 검색 대상 컬럼에 '시리얼번호' 추가
     SEARCH_TARGET_COLS = ["번호", "업체명", "모델명", "상세", "시리얼번호"]

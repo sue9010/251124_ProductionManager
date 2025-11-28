@@ -1,11 +1,10 @@
 import tkinter as tk
 from datetime import datetime
-from tkinter import messagebox, ttk
+from tkinter import Menu, messagebox, ttk
 
 import customtkinter as ctk
 
 from config import Config
-# [수정] FONT_FAMILY 추가 임포트
 from styles import COLORS, FONT_FAMILY, FONTS, get_color_str
 
 
@@ -29,6 +28,9 @@ class TableView(ctk.CTkFrame):
         self.style_treeview()
         
         self.tree.bind("<Double-1>", self.on_double_click)
+        # [신규] 우클릭 이벤트 바인딩
+        self.tree.bind("<Button-3>", self.on_right_click)
+        
         self.refresh_data()
 
     def create_widgets(self):
@@ -57,7 +59,6 @@ class TableView(ctk.CTkFrame):
         control_frame = ctk.CTkFrame(self.toolbar_wrapper, fg_color="transparent")
         control_frame.pack(side="right")
 
-        # [신규] 새로고침 버튼 추가
         ctk.CTkButton(
             control_frame, text="새로고침", width=60, height=34, 
             command=self.refresh_data, text_color=COLORS["text"],
@@ -101,6 +102,10 @@ class TableView(ctk.CTkFrame):
         self.dashboard_label = ctk.CTkLabel(self.dashboard_frame, text="Ready", font=(FONT_FAMILY, 11), text_color=COLORS["text_dim"])
         self.dashboard_label.pack(side="left", padx=30, pady=8)
 
+        # [신규] 컨텍스트 메뉴 생성
+        self.context_menu = Menu(self, tearoff=0)
+        self.context_menu.add_command(label="상세 보기", command=self.open_detail_from_menu)
+
     def refresh_data(self):
         self.style_treeview()
 
@@ -124,12 +129,10 @@ class TableView(ctk.CTkFrame):
                 req_date = str(row['출고요청일'])
                 req_no = row['번호'] 
                 
-                # [수정] 미확인 메모 개수 직접 계산 ('확인' 컬럼이 'Y'가 아닌 것만 카운트)
                 all_memos = self.dm.get_memos(req_no)
                 unchecked_count = sum(1 for m in all_memos if str(m.get('확인', 'N')) != 'Y')
                 
                 if unchecked_count > 0:
-                    # 번호 컬럼 값 변경: "123" -> "123 🔴(2)"
                     values[0] = f"{values[0]} ({unchecked_count})"
 
                 row_tags = [status]
@@ -169,13 +172,52 @@ class TableView(ctk.CTkFrame):
     def on_double_click(self, event):
         selected = self.tree.selection()
         if not selected: return
+        self.open_detail_logic(selected[0])
+
+    # [신규] 우클릭 이벤트 핸들러
+    def on_right_click(self, event):
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+            
+            # 메뉴 구성 동적 변경 (개발자 모드 여부에 따라)
+            self.context_menu.delete(0, "end")
+            self.context_menu.add_command(label="상세 보기", command=self.open_detail_from_menu)
+            
+            if self.dm.is_dev_mode:
+                self.context_menu.add_separator()
+                self.context_menu.add_command(label="⛔ 강제 완전 삭제 (Dev Only)", command=self.hard_delete_selected)
+                
+            self.context_menu.post(event.x_root, event.y_root)
+
+    def open_detail_from_menu(self):
+        selected = self.tree.selection()
+        if selected:
+            self.open_detail_logic(selected[0])
+
+    def hard_delete_selected(self):
+        selected = self.tree.selection()
+        if not selected: return
         
         item = selected[0]
         values = self.tree.item(item, "values")
-        req_no_raw = str(values[0]) # 예: "123" 또는 "123 🔴(1)"
+        req_no_raw = str(values[0])
+        req_no = req_no_raw.split()[0]
         
-        # [핵심 수정] 배지(🔴)가 붙어있을 경우 순수 번호만 추출
-        # 공백을 기준으로 쪼개서 첫 번째 값만 가져옴
+        if messagebox.askyesno("강제 완전 삭제", 
+                               f"정말로 번호 [{req_no}]의 데이터를 영구 삭제하시겠습니까?\n"
+                               f"연관된 모든 데이터(Data, Serial, Memo)가 즉시 삭제됩니다.",
+                               parent=self):
+            success, msg = self.dm.hard_delete_request(req_no)
+            if success:
+                messagebox.showinfo("성공", "데이터가 영구 삭제되었습니다.", parent=self)
+                self.refresh_data()
+            else:
+                messagebox.showerror("실패", msg, parent=self)
+
+    def open_detail_logic(self, item):
+        values = self.tree.item(item, "values")
+        req_no_raw = str(values[0]) 
         req_no = req_no_raw.split()[0]
         
         status = self.dm.get_status_by_req_no(req_no)

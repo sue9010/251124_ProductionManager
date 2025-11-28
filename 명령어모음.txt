@@ -1,9 +1,10 @@
 폴더로 파일 생성
 pyinstaller --onedir --noconsole --icon=logo.ico main.py
 
-pyinstaller --onedir --noconsole --icon=logo.ico launcher.py
+pyinstaller --onefile --noconsole --icon=logo.ico --name=ProductionManager launcher.py
 
 위 두개를 빌드 한 다음
+
 다시 dist 폴더 안에 Final_Build 라는 폴더를 만들고 
 아래처럼 구성
 Final_Build/

@@ -3,7 +3,7 @@ import json
 import os
 import platform
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -22,7 +22,106 @@ class DataManager:
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
         self.current_theme = "Dark"  
         self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
+        
+        # [신규] 개발자 모드 상태 초기화
+        self.is_dev_mode = False
+        
         self.load_config()
+
+    def set_dev_mode(self, enabled: bool):
+        """개발자 모드 상태 변경"""
+        self.is_dev_mode = enabled
+
+    # ---------------------------------------------------------
+    # [개발자 모드 전용 기능]
+    # ---------------------------------------------------------
+    def create_backup(self):
+        """현재 엑셀 파일 백업 생성"""
+        if not os.path.exists(self.current_excel_path):
+            return False, "원본 파일이 없습니다."
+            
+        try:
+            # 원본 파일이 있는 폴더에 'backup' 폴더 생성
+            base_dir = os.path.dirname(self.current_excel_path)
+            backup_dir = os.path.join(base_dir, "backup")
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+                
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = os.path.basename(self.current_excel_path)
+            name, ext = os.path.splitext(filename)
+            backup_filename = f"{name}_backup_{timestamp}{ext}"
+            backup_path = os.path.join(backup_dir, backup_filename)
+            
+            shutil.copy2(self.current_excel_path, backup_path)
+            return True, f"백업 완료:\n{backup_path}"
+        except Exception as e:
+            return False, f"백업 실패: {e}"
+
+    def clean_old_logs(self, months=3):
+        """오래된 로그 정리 (기본 3개월)"""
+        try:
+            cutoff_date = datetime.now() - timedelta(days=months*30)
+            
+            # Log 정리
+            original_log_count = len(self.log_df)
+            # 일시 컬럼이 문자열일 수 있으므로 변환 후 비교
+            temp_log_dates = pd.to_datetime(self.log_df['일시'], errors='coerce')
+            # NaT(변환 실패)는 삭제하지 않거나 삭제할 수 있음. 여기서는 유효한 날짜만 비교
+            # 비교 가능한 행만 남기기 위해 인덱싱 사용
+            self.log_df = self.log_df[temp_log_dates >= cutoff_date]
+            deleted_log = original_log_count - len(self.log_df)
+            
+            # Memo Log 정리
+            original_memo_log_count = len(self.memo_log_df)
+            temp_memo_dates = pd.to_datetime(self.memo_log_df['일시'], errors='coerce')
+            self.memo_log_df = self.memo_log_df[temp_memo_dates >= cutoff_date]
+            deleted_memo_log = original_memo_log_count - len(self.memo_log_df)
+            
+            # 변경사항 저장
+            self.save_to_excel()
+            
+            # [수정] 삭제 기준일을 메시지에 포함하여 사용자 혼동 방지
+            cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+            return True, f"로그 정리 완료 (기준일: {cutoff_str} 이전)\n- 일반 로그 삭제: {deleted_log}건\n- 메모 로그 삭제: {deleted_memo_log}건"
+        except Exception as e:
+            return False, f"로그 정리 실패: {e}"
+
+    def hard_delete_request(self, req_no):
+        """[Dev Only] 데이터 강제 완전 삭제 (연관 데이터 포함)"""
+        if not self.is_dev_mode:
+            return False, "개발자 모드가 아닙니다."
+
+        try:
+            # 1. Main Data 삭제
+            mask_data = self.df["번호"].astype(str) == str(req_no)
+            if not mask_data.any():
+                return False, "데이터를 찾을 수 없습니다."
+            
+            self.df = self.df[~mask_data]
+            
+            # 2. Serial Data 삭제
+            if not self.serial_df.empty:
+                mask_serial = self.serial_df["요청번호"].astype(str) == str(req_no)
+                self.serial_df = self.serial_df[~mask_serial]
+                
+            # 3. Memo 삭제
+            if not self.memo_df.empty:
+                mask_memo = self.memo_df["번호"].astype(str) == str(req_no)
+                self.memo_df = self.memo_df[~mask_memo]
+                
+            # 4. Memo Log 삭제 -> [수정] 삭제하지 않음 (이력 보존)
+            # if not self.memo_log_df.empty:
+            #     mask_memolog = self.memo_log_df["요청번호"].astype(str) == str(req_no)
+            #     self.memo_log_df = self.memo_log_df[~mask_memolog]
+
+            # 5. 작업 로그 남기기 (삭제 사실은 남김)
+            self._add_log("강제 삭제", f"[Dev] 번호[{req_no}] 및 연관 데이터 영구 삭제")
+            
+            return self.save_to_excel()
+            
+        except Exception as e:
+            return False, f"강제 삭제 중 오류: {e}"
 
     def load_config(self):
         if os.path.exists(Config.CONFIG_FILENAME):
