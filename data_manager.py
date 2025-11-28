@@ -434,11 +434,12 @@ class DataManager:
         return True
 
     # [신규] 완료 처리 (개선된 버전)
-    def finalize_production(self, req_no, out_date, memo):
+    def finalize_production(self, req_no, out_date):
+        """생산 완료 처리 (메모 저장 로직 제거)"""
         mask = self.df["번호"].astype(str) == str(req_no)
         if mask.any():
             self.df.loc[mask, "출고일"] = out_date
-            self.df.loc[mask, "생산팀 메모"] = memo
+            # self.df.loc[mask, "생산팀 메모"] = memo # [수정] 제거됨
             self.df.loc[mask, "Status"] = "완료"
             
             self._add_log("생산 완료", f"번호[{req_no}] 출고일({out_date}) 처리 완료.")

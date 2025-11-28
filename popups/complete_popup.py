@@ -102,15 +102,8 @@ class CompletePopup(BasePopup):
         self.e_date.pack(side="left", padx=(0, 20))
         self.e_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
 
-        ctk.CTkLabel(footer, text="생산팀 메모:").pack(side="left", padx=(0, 5))
-        self.e_memo = ctk.CTkEntry(footer, width=250)
-        self.e_memo.pack(side="left", fill="x", expand=True, padx=(0, 20))
+        # [수정] 생산팀 메모 입력란 제거
         
-        old_memo = self.first_row.get("생산팀 메모", "")
-        if old_memo and str(old_memo) != "-":
-            self.e_memo.delete(0, "end")
-            self.e_memo.insert(0, str(old_memo))
-
         ctk.CTkButton(footer, text="최종 완료 처리", command=self.save_all, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=150).pack(side="right")
         ctk.CTkButton(footer, text="취소", command=self.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="right", padx=(0, 5))
 
@@ -145,7 +138,8 @@ class CompletePopup(BasePopup):
         
         if answer:
             try:
-                success, msg = self.dm.finalize_production(self.req_no, self.e_date.get(), self.e_memo.get())
+                # [수정] finalize_production 호출 시 memo 인자 제거
+                success, msg = self.dm.finalize_production(self.req_no, self.e_date.get())
                 
                 if success:
                     # 성공 메시지 띄울 때도 Topmost 해제 필요
