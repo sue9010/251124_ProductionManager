@@ -75,69 +75,129 @@ class BasePopup(ctk.CTkToplevel):
     def _add_dev_edit_button(self, parent_frame):
         """개발자 모드일 경우 정보 수정 버튼을 추가합니다."""
         if getattr(self.dm, 'is_dev_mode', False):
-            ctk.CTkButton(parent_frame, text="✏️ 정보 수정", width=100, command=self.open_edit_popup, 
+            ctk.CTkButton(parent_frame, text="정보 수정", width=100, command=self.open_edit_popup, 
                           fg_color=COLORS["warning"], hover_color="#D35400").pack(side="right", padx=(0, 5))
 
     def open_edit_popup(self):
-        """[Dev] 공통 정보 수정 팝업"""
+        """[Dev] 공통 정보 및 품목별 정보 수정 팝업"""
         if not getattr(self.dm, 'is_dev_mode', False):
             return
 
-        # 현재 데이터 조회
-        target_rows = self.dm.df[self.dm.df["번호"].astype(str) == str(self.req_no)]
-        if target_rows.empty:
+        # 1. 현재 요청 번호에 해당하는 모든 행의 인덱스를 찾습니다.
+        target_indices = self.dm.df[self.dm.df["번호"].astype(str) == str(self.req_no)].index
+        if len(target_indices) == 0:
             messagebox.showerror("오류", "데이터를 찾을 수 없습니다.", parent=self)
             return
-        row_data = target_rows.iloc[0]
+        
+        # 첫 번째 행을 기준으로 공통 정보를 가져옵니다.
+        first_row = self.dm.df.loc[target_indices[0]]
 
         edit_win = ctk.CTkToplevel(self)
         edit_win.title(f"[DEV] 데이터 수정 - {self.req_no}")
-        edit_win.geometry("500x600")
+        edit_win.geometry("600x700")
         edit_win.transient(self)
         edit_win.attributes("-topmost", True)
-        
-        fields = ["업체명", "출고요청일", "출고예정일", "출고일", "Status", "기타요청사항", "업체별 특이사항", "대기사유"]
-        entries = {}
         
         container = ctk.CTkScrollableFrame(edit_win)
         container.pack(fill="both", expand=True, padx=10, pady=10)
         
-        for field in fields:
+        # --- A. 공통 정보 수정 섹션 ---
+        ctk.CTkLabel(container, text="■ 공통 정보 (일괄 적용)", font=FONTS["header"]).pack(anchor="w", pady=(0, 10))
+        
+        common_fields = ["업체명", "출고요청일", "출고예정일", "출고일", "Status", "기타요청사항", "업체별 특이사항", "대기사유"]
+        common_entries = {}
+        
+        for field in common_fields:
             row_frame = ctk.CTkFrame(container, fg_color="transparent")
-            row_frame.pack(fill="x", pady=5)
-            ctk.CTkLabel(row_frame, text=field, width=100, anchor="w").pack(side="left")
-            entry = ctk.CTkEntry(row_frame, width=250)
+            row_frame.pack(fill="x", pady=2)
+            ctk.CTkLabel(row_frame, text=field, width=120, anchor="w").pack(side="left")
+            entry = ctk.CTkEntry(row_frame, height=28)
             entry.pack(side="left", fill="x", expand=True)
-            # 초기값 설정
-            val = row_data.get(field, "")
+            
+            val = first_row.get(field, "")
             entry.insert(0, str(val))
-            entries[field] = entry
+            common_entries[field] = entry
+
+        # --- B. 품목별 정보 수정 섹션 ---
+        ctk.CTkFrame(container, height=2, fg_color=COLORS["border"]).pack(fill="x", pady=20)
+        ctk.CTkLabel(container, text="■ 품목별 상세 정보", font=FONTS["header"]).pack(anchor="w", pady=(0, 10))
+
+        item_entries = [] # 리스트에 각 품목의 엔트리 위젯들을 딕셔너리로 저장
+
+        for idx in target_indices:
+            row_data = self.dm.df.loc[idx]
+            
+            item_card = ctk.CTkFrame(container, fg_color=COLORS["bg_dark"])
+            item_card.pack(fill="x", pady=5, padx=5)
+            
+            # 행 1: 모델명
+            r1 = ctk.CTkFrame(item_card, fg_color="transparent")
+            r1.pack(fill="x", padx=5, pady=2)
+            ctk.CTkLabel(r1, text="모델명:", width=60, anchor="w").pack(side="left")
+            e_model = ctk.CTkEntry(r1, width=200)
+            e_model.insert(0, str(row_data.get("모델명", "")))
+            e_model.pack(side="left", fill="x", expand=True)
+            
+            # 행 2: 상세, 수량
+            r2 = ctk.CTkFrame(item_card, fg_color="transparent")
+            r2.pack(fill="x", padx=5, pady=2)
+            
+            ctk.CTkLabel(r2, text="상세:", width=60, anchor="w").pack(side="left")
+            e_detail = ctk.CTkEntry(r2, width=150)
+            e_detail.insert(0, str(row_data.get("상세", "")))
+            e_detail.pack(side="left", fill="x", expand=True, padx=(0, 10))
+            
+            ctk.CTkLabel(r2, text="수량:", width=40, anchor="w").pack(side="left")
+            e_qty = ctk.CTkEntry(r2, width=60)
+            e_qty.insert(0, str(row_data.get("수량", "")))
+            e_qty.pack(side="left")
+
+            item_entries.append({
+                "index": idx,
+                "model": e_model,
+                "detail": e_detail,
+                "qty": e_qty
+            })
             
         def save_changes():
-            new_data = {field: entry.get() for field, entry in entries.items()}
+            # 1. 공통 정보 업데이트 (해당 요청번호를 가진 모든 행에 일괄 적용)
+            new_common_data = {f: e.get() for f, e in common_entries.items()}
             
-            mask = self.dm.df["번호"].astype(str) == str(self.req_no)
-            if mask.any():
-                for col, val in new_data.items():
-                    self.dm.df.loc[mask, col] = val
+            for idx in target_indices:
+                for col, val in new_common_data.items():
+                    self.dm.df.loc[idx, col] = val
+            
+            # 2. 품목별 정보 업데이트 (각 행별로 개별 적용)
+            for item in item_entries:
+                idx = item["index"]
+                self.dm.df.loc[idx, "모델명"] = item["model"].get()
+                self.dm.df.loc[idx, "상세"] = item["detail"].get()
                 
-                edit_win.attributes("-topmost", False)
-                self.attributes("-topmost", False) # 부모창 Topmost 해제
-                
-                success, msg = self.dm.save_to_excel()
-                
-                if success:
-                    messagebox.showinfo("성공", "데이터가 수정되었습니다.", parent=edit_win)
-                    edit_win.destroy()
-                    self.destroy() # 현재 팝업도 닫아서 갱신 유도
-                    if self.refresh_callback:
-                        self.refresh_callback()
-                else:
-                    messagebox.showerror("실패", msg, parent=edit_win)
-                    edit_win.attributes("-topmost", True)
-                    self.attributes("-topmost", True) # 복구
+                # 수량은 숫자로 변환 시도, 실패 시 문자열 그대로 저장
+                qty_val = item["qty"].get()
+                try:
+                    self.dm.df.loc[idx, "수량"] = int(qty_val)
+                except:
+                    self.dm.df.loc[idx, "수량"] = qty_val
+            
+            # 3. 엑셀 저장
+            edit_win.attributes("-topmost", False)
+            self.attributes("-topmost", False)
+            
+            success, msg = self.dm.save_to_excel()
+            
+            if success:
+                messagebox.showinfo("성공", "데이터가 수정되었습니다.", parent=edit_win)
+                edit_win.destroy()
+                self.destroy() # 현재 상세 팝업도 닫아서 데이터 갱신 유도
+                if self.refresh_callback:
+                    self.refresh_callback()
+            else:
+                messagebox.showerror("실패", msg, parent=edit_win)
+                edit_win.attributes("-topmost", True)
+                self.attributes("-topmost", True)
 
-        ctk.CTkButton(edit_win, text="저장", command=save_changes, fg_color=COLORS["primary"]).pack(pady=20)
+        ctk.CTkButton(edit_win, text="모든 변경사항 저장", command=save_changes, fg_color=COLORS["primary"], height=40, font=FONTS["main_bold"]).pack(pady=20, padx=20, fill="x")
 
     # ----------------------------------------------------------------
     # Memo Sidebar Logic
