@@ -126,7 +126,8 @@ class ViewPopup(BasePopup):
 
             # [신규] 우측 버튼 프레임
             btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-            btn_frame.pack(side="right", padx=10, pady=10)
+            # [수정] anchor="ne"를 추가하여 버튼을 우측 상단으로 이동
+            btn_frame.pack(side="right", anchor="ne", padx=10, pady=10)
 
             ctk.CTkButton(
                 btn_frame, 
@@ -157,18 +158,36 @@ class ViewPopup(BasePopup):
 
     # [신규] 상세 보기 팝업 오픈 메서드
     def open_serial_popup(self, model, qty):
+        popup = None
+
         # ViewPopup에서는 데이터 수정 후 UI 갱신이 필요 없으므로 빈 콜백 전달 (혹은 재조회 로직 추가 가능)
         def on_save_callback(model_name, data_list):
-            # 팝업 닫고 새로고침 (데이터 변경 사항 반영을 위해)
-            self.dm.update_serial_list(self.req_no, model_name, data_list)
-            self.destroy()
-            # ViewPopup을 다시 열어 갱신된 데이터 보여주기 (선택 사항)
-            # 여기서는 단순히 저장만 하고 팝업 유지
-            
-            # 현재 팝업의 내용을 갱신하기 위해 창을 닫고 새로 여는 것이 가장 깔끔함
-            # 하지만 self.refresh_callback()은 메인 화면 갱신용이므로,
-            # 여기서는 단순히 안내 메시지 후 종료하거나, 현재 창을 다시 그리는 방법이 있음.
-            # 일단은 데이터 저장 로직만 수행하도록 함.
-            pass
+            # [수정] 알림창이 가려지는 현상 방지를 위해 팝업들의 Topmost 속성 잠시 해제
+            if popup:
+                popup.attributes("-topmost", False)
+            self.attributes("-topmost", False)
 
-        SerialInputPopup(self, self.dm, self.req_no, model, qty, on_save_callback)
+            # 1. 데이터 매니저 업데이트 (메모리 상) - Serial_Data 및 Data 시트(시리얼/렌즈 컬럼) 동기화
+            self.dm.update_serial_list(self.req_no, model_name, data_list)
+            
+            # 2. 엑셀 파일에 즉시 저장 (Data 시트 반영을 위해 필수)
+            success, msg = self.dm.save_to_excel()
+            
+            # 메시지 박스의 부모를 현재 조작 중인 팝업(popup)으로 설정하여 그 위에 뜨게 함
+            target_parent = popup if popup else self
+
+            if success:
+                # 3. 성공 시 메인 뷰 갱신 및 팝업 닫기
+                if self.refresh_callback:
+                    self.refresh_callback()
+                messagebox.showinfo("저장 완료", "수정된 내용이 저장되었습니다.", parent=target_parent)
+                self.destroy()
+            else:
+                messagebox.showerror("저장 실패", msg, parent=target_parent)
+                
+                # 실패 시에는 창이 닫히지 않으므로 Topmost 속성 복구
+                if popup:
+                    popup.attributes("-topmost", True)
+                self.attributes("-topmost", True)
+
+        popup = SerialInputPopup(self, self.dm, self.req_no, model, qty, on_save_callback)
