@@ -310,27 +310,45 @@ class BasePopup(ctk.CTkToplevel):
         ctk.CTkLabel(header_frame, text=header_text, font=(FONT_FAMILY, 12), text_color=COLORS["text_dim"]).pack(side="left")
 
         content_text = memo['내용']
-        
+        file_path = None
+        display_text = content_text
+
+        # [수정] 파일 경로 파싱 로직 개선 (줄 단위 처리)
         if "[파일첨부]" in content_text and "(경로:" in content_text:
             try:
-                start_idx = content_text.find("(경로:") + 5
-                end_idx = content_text.find(")", start_idx)
-                file_path = content_text[start_idx:end_idx].strip()
-                display_text = content_text.split('\n')[0] 
+                lines = content_text.splitlines()
+                display_text = lines[0] 
                 
-                btn_file = ctk.CTkButton(
-                    card, 
-                    text=f"📁 {display_text}", 
-                    fg_color=COLORS["bg_medium"], 
-                    hover_color=COLORS["bg_light"],
-                    text_color=COLORS["primary"],
-                    anchor="w",
-                    command=lambda p=file_path: self._open_pdf_file(p) 
-                )
-                btn_file.pack(fill="x", padx=10, pady=(0, 0))
-            except:
-                content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
-                content_lbl.pack(anchor="w", padx=10, pady=(0, 0))
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("(경로:"):
+                        temp_path = line[5:].strip()
+                        if temp_path.endswith(")"):
+                            file_path = temp_path[:-1]
+                        else:
+                            file_path = temp_path
+                        break
+                
+                if not file_path:
+                    start_idx = content_text.find("(경로:") + 5
+                    end_idx = content_text.rfind(")") 
+                    if start_idx > 4 and end_idx > start_idx:
+                        file_path = content_text[start_idx:end_idx].strip()
+
+            except Exception as e:
+                print(f"Path parsing error: {e}")
+        
+        if file_path:
+             btn_file = ctk.CTkButton(
+                card, 
+                text=f"📁 {display_text}", 
+                fg_color=COLORS["bg_medium"], 
+                hover_color=COLORS["bg_light"],
+                text_color=COLORS["primary"],
+                anchor="w",
+                command=lambda p=file_path: self._open_pdf_file(p) 
+            )
+             btn_file.pack(fill="x", padx=10, pady=(0, 0))
         else:
             content_lbl = ctk.CTkLabel(card, text=content_text, font=FONTS["main"], text_color=COLORS["text"], wraplength=260, justify="left")
             content_lbl.pack(anchor="w", padx=10, pady=(0, 0))
@@ -390,6 +408,16 @@ class BasePopup(ctk.CTkToplevel):
         if not path or str(path).strip() == "-" or str(path).strip() == "":
             messagebox.showinfo("알림", "등록된 파일 경로가 없습니다.", parent=self)
             return
+            
+        # [수정] 경로 정규화: 혼합된 슬래시/백슬래시 및 ₩ 기호 정리
+        try:
+            # 1. ₩ 기호를 표준 백슬래시로 변환
+            path = str(path).replace("₩", "\\")
+            # 2. os.path.normpath로 표준화 (윈도우: \로 통일)
+            path = os.path.normpath(path)
+        except:
+            pass
+
         if os.path.exists(path):
             try:
                 os.startfile(path)

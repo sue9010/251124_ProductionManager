@@ -290,11 +290,16 @@ class DataManager:
         if mask.any():
             if "[파일첨부]" in content and "(경로:" in content:
                 try:
-                    start_idx = content.find("(경로:") + 5
-                    end_idx = content.rfind(")") 
-                    if end_idx > start_idx:
-                        file_path = content[start_idx:end_idx].strip()
-                        if os.path.exists(file_path): os.remove(file_path)
+                    file_path = None
+                    # [수정] 줄 단위 파싱으로 변경
+                    for line in content.split('\n'):
+                        line = line.strip()
+                        if line.startswith("(경로:") and line.endswith(")"):
+                            file_path = line[5:-1].strip()
+                            break
+                    
+                    if file_path and os.path.exists(file_path):
+                        os.remove(file_path)
                 except: pass
             self.memo_df = self.memo_df[~mask]
             self._add_memo_log("삭제", req_no, content)
