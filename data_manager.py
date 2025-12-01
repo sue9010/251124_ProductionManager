@@ -315,6 +315,10 @@ class DataManager:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             new_file_name = f"{name}_{timestamp}{ext}"
             dest_path = os.path.join(self.attachment_dir, new_file_name)
+            
+            # [수정] 경로 정규화 (표준 백슬래시로 변환하여 ₩ 등의 문제 해결)
+            dest_path = os.path.normpath(dest_path)
+            
             shutil.copy2(source_path, dest_path)
             return dest_path, None
         except Exception as e: return None, str(e)
