@@ -76,8 +76,10 @@ class SchedulePopup(BasePopup):
 
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
         self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
-        self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 1, 0)
-        self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 1, 1)
+        
+        # [수정] 텍스트가 길어지면 줄바꿈 되도록 설정 (wraplength=250)
+        self._add_grid_item(grid_frame, "기타요청사항", common_info["기타요청사항"], 1, 0, wraplength=250, justify="left")
+        self._add_grid_item(grid_frame, "업체별 특이사항", common_info["업체별 특이사항"], 1, 1, wraplength=250, justify="left")
 
         if self.current_status == "대기":
             ctk.CTkLabel(grid_frame, text="⚠️ 대기 사유", font=FONTS["main_bold"], text_color=COLORS["warning"]).grid(row=2, column=0, padx=10, pady=5, sticky="w")

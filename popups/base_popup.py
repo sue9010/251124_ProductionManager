@@ -112,7 +112,7 @@ class BasePopup(ctk.CTkToplevel):
             
             val = first_row.get(field, "")
             
-            # [수정] Status 필드는 드롭다운(OptionMenu)으로 생성
+            # Status 필드는 드롭다운(OptionMenu)으로 생성
             if field == "Status":
                 status_options = ["생산 접수", "대기", "생산중", "중지", "완료"]
                 entry = ctk.CTkOptionMenu(row_frame, values=status_options, height=28, fg_color=COLORS["bg_medium"], text_color=COLORS["text"], button_color=COLORS["primary"], button_hover_color=COLORS["primary_hover"])
@@ -313,7 +313,6 @@ class BasePopup(ctk.CTkToplevel):
         file_path = None
         display_text = content_text
 
-        # [수정] 파일 경로 파싱 로직 개선 (줄 단위 처리)
         if "[파일첨부]" in content_text and "(경로:" in content_text:
             try:
                 lines = content_text.splitlines()
@@ -409,11 +408,8 @@ class BasePopup(ctk.CTkToplevel):
             messagebox.showinfo("알림", "등록된 파일 경로가 없습니다.", parent=self)
             return
             
-        # [수정] 경로 정규화: 혼합된 슬래시/백슬래시 및 ₩ 기호 정리
         try:
-            # 1. ₩ 기호를 표준 백슬래시로 변환
             path = str(path).replace("₩", "\\")
-            # 2. os.path.normpath로 표준화 (윈도우: \로 통일)
             path = os.path.normpath(path)
         except:
             pass
@@ -446,10 +442,13 @@ class BasePopup(ctk.CTkToplevel):
             ctk.CTkButton(parent_frame, text="중지", width=80, fg_color=COLORS["danger"], hover_color=COLORS["danger_hover"], 
                           command=set_hold).pack(side="right", padx=(0, 5))
 
-    def _add_grid_item(self, parent, label, value, r, c):
+    def _add_grid_item(self, parent, label, value, r, c, **kwargs):
         real_c = c * 2
-        ctk.CTkLabel(parent, text=label, font=FONTS["main_bold"], text_color=COLORS["primary"]).grid(row=r, column=real_c, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(parent, text=str(value), font=FONTS["main"], text_color=COLORS["text"]).grid(row=r, column=real_c+1, padx=10, pady=5, sticky="w")
+        # [수정] 텍스트가 길어질 경우를 대비해 라벨은 좌측 상단(nw) 정렬
+        ctk.CTkLabel(parent, text=label, font=FONTS["main_bold"], text_color=COLORS["primary"]).grid(row=r, column=real_c, padx=10, pady=5, sticky="nw")
+        
+        # [수정] kwargs로 wraplength 등을 받을 수 있도록 변경
+        ctk.CTkLabel(parent, text=str(value), font=FONTS["main"], text_color=COLORS["text"], **kwargs).grid(row=r, column=real_c+1, padx=10, pady=5, sticky="w")
 
     def _open_change_date_input(self, req_no, current_date, parent=None):
         master = parent if parent else self
@@ -496,7 +495,6 @@ class BasePopup(ctk.CTkToplevel):
         win.transient(self) 
         win.title("생산 재개")
         
-        # [수정] 팝업 크기 확장
         width, height = 500, 450
         screen_width = win.winfo_screenwidth()
         screen_height = win.winfo_screenheight()
