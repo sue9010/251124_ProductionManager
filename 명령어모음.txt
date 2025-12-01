@@ -1,6 +1,8 @@
 폴더로 파일 생성
 pyinstaller --onedir --noconsole --noconfirm --icon=logo.ico main.py
 
+pyinstaller --onedir --noconsole --noconfirm --icon=logo.ico --distpath "\\cox_biz\생산-영업\ProductionManager_Update" main.py
+
 pyinstaller --onefile --noconsole --icon=logo.ico --name=ProductionManager launcher.py
 
 위 두개를 빌드 한 다음
