@@ -140,46 +140,6 @@ class SchedulePopup(BasePopup):
             else:
                 messagebox.showerror("삭제 실패", msg, parent=self)
 
-    def open_waiting_reason_popup(self):
-        reason_window = ctk.CTkToplevel(self)
-        reason_window.title("생산 대기 설정")
-        
-        width, height = 400, 200
-        screen_width = reason_window.winfo_screenwidth()
-        screen_height = reason_window.winfo_screenheight()
-        x = (screen_width / 2) - (width / 2)
-        y = (screen_height / 2) - (height / 2)
-        reason_window.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
-
-        reason_window.attributes("-topmost", True)
-        
-        ctk.CTkLabel(reason_window, text="대기 사유를 입력하세요.", font=FONTS["header"]).pack(pady=(20, 10))
-        
-        e_reason = ctk.CTkEntry(reason_window, width=300)
-        e_reason.pack(pady=5)
-        e_reason.focus_set()
-        
-        def submit_reason():
-            reason_text = e_reason.get().strip()
-            if not reason_text:
-                messagebox.showwarning("경고", "대기 사유를 입력해주세요.", parent=reason_window)
-                return
-            
-            success, msg = self.dm.update_status_to_waiting(self.req_no, reason_text)
-            if success:
-                messagebox.showinfo("성공", "상태가 '대기'로 변경되었습니다.", parent=reason_window)
-                reason_window.destroy()
-                self.destroy()
-                self.refresh_callback() 
-            else:
-                messagebox.showerror("실패", msg, parent=reason_window)
-        
-        btn_frame = ctk.CTkFrame(reason_window, fg_color="transparent")
-        btn_frame.pack(pady=20)
-        
-        ctk.CTkButton(btn_frame, text="확인", command=submit_reason, fg_color=COLORS["primary"], hover_color=COLORS["primary_hover"], width=80).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="취소", command=reason_window.destroy, fg_color=COLORS["bg_light"], hover_color=COLORS["bg_light_hover"], width=80).pack(side="left", padx=5)
-
     def confirm(self):
         date_str = self.date_entry.get()
         if len(date_str) != 10:

@@ -53,6 +53,12 @@ class CompletePopup(BasePopup):
         # 개발자 모드 수정 버튼 추가
         self._add_dev_edit_button(header_line)
 
+        # [신규] 대기 버튼 추가 (중지와 PDF 보기 왼쪽)
+        if self.current_status != "대기" and self.current_status != "중지":
+             ctk.CTkButton(header_line, text="대기", width=80, 
+                           fg_color=COLORS["warning"], hover_color="#D35400", 
+                           command=self.open_waiting_reason_popup).pack(side="right", padx=(0, 5))
+
         grid_frame = ctk.CTkFrame(info_frame, fg_color=COLORS["bg_dark"])
         grid_frame.pack(fill="x")
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)

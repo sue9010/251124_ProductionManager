@@ -43,7 +43,6 @@ class COXProductionManager(BaseApp):
         
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # [수정] refresh_ui 메서드를 전달하여 UI 전반을 갱신하도록 함
         self.pm = PopupManager(self, self.dm, self.refresh_ui)
 
         self.current_view = None
@@ -58,13 +57,32 @@ class COXProductionManager(BaseApp):
 
         self.load_data_initial()
         self.show_dashboard_view()
+        
+        # [신규] 자동 새로고침 루프 시작 (5초마다 체크)
+        self.start_auto_refresh_loop()
+
+    # [신규] 외부 데이터 변경 감지 루프
+    def start_auto_refresh_loop(self):
+        try:
+            # 외부에서 파일이 변경되었는지 확인
+            if self.dm.check_for_external_changes():
+                # 변경되었다면 조용히 데이터 로드 및 UI 갱신
+                # (팝업창 없이 갱신)
+                success, _ = self.dm.load_data()
+                if success:
+                    self.refresh_ui()
+                    # (선택사항) 상태표시줄이 있다면 "데이터가 동기화되었습니다" 표시 가능
+        except Exception as e:
+            print(f"Auto-refresh error: {e}")
+            
+        # 5000ms(5초) 후에 다시 실행
+        self.after(5000, self.start_auto_refresh_loop)
 
     def create_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=COLORS["bg_dark"])
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
         self.sidebar_frame.grid_propagate(False)
 
-        # [신규] 로고 라벨을 변수에 저장 (나중에 텍스트 변경을 위해)
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="Production Manager", font=("Emoji", 24, "bold"), text_color=COLORS["primary"])
         self.logo_label.pack(pady=(30, 20), padx=20, anchor="w")
         
@@ -139,15 +157,13 @@ class COXProductionManager(BaseApp):
     def load_data_initial(self):
         self.dm.load_data()
 
-    # [신규] UI 갱신 통합 메서드 (개발자 모드 상태 반영 포함)
     def refresh_ui(self):
         self.update_sidebar_theme()
         self.refresh_current_view()
 
     def update_sidebar_theme(self):
-        """개발자 모드 상태에 따라 사이드바 색상 변경"""
         if self.dm.is_dev_mode:
-            self.sidebar_frame.configure(fg_color="#5a1e1e") # Dark Red 계열
+            self.sidebar_frame.configure(fg_color="#5a1e1e")
             self.logo_label.configure(text="[DEV MODE]", text_color=COLORS["danger"])
         else:
             self.sidebar_frame.configure(fg_color=COLORS["bg_dark"])
