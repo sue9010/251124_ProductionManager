@@ -16,14 +16,12 @@ class DataManager:
         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS) 
         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
         self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
-        # [신규] 시리얼 데이터프레임 추가
         self.serial_df = pd.DataFrame(columns=Config.SERIAL_COLUMNS)
         
         self.current_excel_path = Config.DEFAULT_EXCEL_PATH
         self.current_theme = "Dark"  
         self.attachment_dir = Config.DEFAULT_ATTACHMENT_DIR 
         
-        # [신규] 개발자 모드 상태 초기화 (이 부분이 없으면 에러가 발생합니다)
         self.is_dev_mode = False
         
         self.load_config()
@@ -33,89 +31,106 @@ class DataManager:
         self.is_dev_mode = enabled
 
     # ---------------------------------------------------------
-    # [개발자 모드 전용 기능]
+    # [핵심] 트랜잭션 처리 (동시성 제어)
     # ---------------------------------------------------------
-    def create_backup(self):
-        """현재 엑셀 파일 백업 생성"""
+    def _execute_transaction(self, update_logic_func):
+        """
+        데이터 충돌 방지를 위한 트랜잭션 함수
+        1. 최신 엑셀 파일 로드 (읽기)
+        2. update_logic_func 실행 (수정 로직 적용)
+        3. 엑셀 파일 저장 (쓰기)
+        4. 메모리 데이터 갱신 (UI 반영용)
+        """
         if not os.path.exists(self.current_excel_path):
-            return False, "원본 파일이 없습니다."
-            
-        try:
-            # 원본 파일이 있는 폴더에 'backup' 폴더 생성
-            base_dir = os.path.dirname(self.current_excel_path)
-            backup_dir = os.path.join(base_dir, "backup")
-            if not os.path.exists(backup_dir):
-                os.makedirs(backup_dir)
-                
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = os.path.basename(self.current_excel_path)
-            name, ext = os.path.splitext(filename)
-            backup_filename = f"{name}_backup_{timestamp}{ext}"
-            backup_path = os.path.join(backup_dir, backup_filename)
-            
-            shutil.copy2(self.current_excel_path, backup_path)
-            return True, f"백업 완료:\n{backup_path}"
-        except Exception as e:
-            return False, f"백업 실패: {e}"
-
-    def clean_old_logs(self, months=3):
-        """오래된 로그 정리 (기본 3개월)"""
-        try:
-            cutoff_date = datetime.now() - timedelta(days=months*30)
-            
-            # Log 정리
-            original_log_count = len(self.log_df)
-            temp_log_dates = pd.to_datetime(self.log_df['일시'], errors='coerce')
-            self.log_df = self.log_df[temp_log_dates >= cutoff_date]
-            deleted_log = original_log_count - len(self.log_df)
-            
-            # Memo Log 정리
-            original_memo_log_count = len(self.memo_log_df)
-            temp_memo_dates = pd.to_datetime(self.memo_log_df['일시'], errors='coerce')
-            self.memo_log_df = self.memo_log_df[temp_memo_dates >= cutoff_date]
-            deleted_memo_log = original_memo_log_count - len(self.memo_log_df)
-            
-            # 변경사항 저장
-            self.save_to_excel()
-            
-            cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-            return True, f"로그 정리 완료 (기준일: {cutoff_str} 이전)\n- 일반 로그 삭제: {deleted_log}건\n- 메모 로그 삭제: {deleted_memo_log}건"
-        except Exception as e:
-            return False, f"로그 정리 실패: {e}"
-
-    def hard_delete_request(self, req_no):
-        """[Dev Only] 데이터 강제 완전 삭제 (연관 데이터 포함)"""
-        if not self.is_dev_mode:
-            return False, "개발자 모드가 아닙니다."
+            return False, "엑셀 파일이 존재하지 않습니다."
 
         try:
-            # 1. Main Data 삭제
-            mask_data = self.df["번호"].astype(str) == str(req_no)
-            if not mask_data.any():
-                return False, "데이터를 찾을 수 없습니다."
-            
-            self.df = self.df[~mask_data]
-            
-            # 2. Serial Data 삭제
-            if not self.serial_df.empty:
-                mask_serial = self.serial_df["요청번호"].astype(str) == str(req_no)
-                self.serial_df = self.serial_df[~mask_serial]
+            # 1. 저장 직전 최신 상태 읽기 (임시 변수에 로드)
+            with pd.ExcelFile(self.current_excel_path) as xls:
+                # Data 시트
+                if Config.SHEET_DATA in xls.sheet_names:
+                    temp_df = pd.read_excel(xls, Config.SHEET_DATA)
+                else:
+                    temp_df = pd.read_excel(xls, 0)
                 
-            # 3. Memo 삭제
-            if not self.memo_df.empty:
-                mask_memo = self.memo_df["번호"].astype(str) == str(req_no)
-                self.memo_df = self.memo_df[~mask_memo]
+                # Log 시트
+                if Config.SHEET_LOG in xls.sheet_names:
+                    temp_log = pd.read_excel(xls, Config.SHEET_LOG)
+                else:
+                    temp_log = pd.DataFrame(columns=Config.LOG_COLUMNS)
                 
-            # 4. Memo Log 삭제 -> 삭제하지 않음 (이력 보존)
+                # Memo 시트
+                if Config.SHEET_MEMO in xls.sheet_names:
+                    temp_memo = pd.read_excel(xls, Config.SHEET_MEMO)
+                else:
+                    temp_memo = pd.DataFrame(columns=Config.MEMO_COLUMNS)
+                
+                # Memo Log 시트
+                if Config.SHEET_MEMO_LOG in xls.sheet_names:
+                    temp_memo_log = pd.read_excel(xls, Config.SHEET_MEMO_LOG)
+                else:
+                    temp_memo_log = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
+                
+                # Serial 시트
+                if Config.SHEET_SERIAL in xls.sheet_names:
+                    temp_serial = pd.read_excel(xls, Config.SHEET_SERIAL)
+                    if not temp_serial.empty:
+                        temp_serial["요청번호"] = temp_serial["요청번호"].astype(str)
+                else:
+                    temp_serial = pd.DataFrame(columns=Config.SERIAL_COLUMNS)
 
-            # 5. 작업 로그 남기기
-            self._add_log("강제 삭제", f"[Dev] 번호[{req_no}] 및 연관 데이터 영구 삭제")
+            # 전처리 (결측치 처리 등)
+            for col in Config.COLUMNS:
+                if col not in temp_df.columns: temp_df[col] = '-'
+            # 날짜 컬럼 등은 필요 시 여기서 변환하지만, 저장 시에는 문자열로 저장되므로 생략 가능
+            temp_df = temp_df.fillna('-')
             
-            return self.save_to_excel()
+            # 2. 수정 로직 실행 (콜백 함수 호출)
+            # dfs 딕셔너리에 모든 데이터프레임을 담아 전달
+            dfs = {
+                "df": temp_df, 
+                "log": temp_log, 
+                "memo": temp_memo, 
+                "memo_log": temp_memo_log, 
+                "serial": temp_serial
+            }
             
+            success, msg = update_logic_func(dfs)
+            
+            if not success:
+                return False, msg
+
+            # 3. 파일 저장 (수정된 최신 데이터로 덮어쓰기)
+            with pd.ExcelWriter(self.current_excel_path, engine="openpyxl") as writer:
+                dfs["df"].to_excel(writer, sheet_name=Config.SHEET_DATA, index=False)
+                dfs["log"].to_excel(writer, sheet_name=Config.SHEET_LOG, index=False)
+                dfs["memo"].to_excel(writer, sheet_name=Config.SHEET_MEMO, index=False)
+                dfs["memo_log"].to_excel(writer, sheet_name=Config.SHEET_MEMO_LOG, index=False)
+                dfs["serial"].to_excel(writer, sheet_name=Config.SHEET_SERIAL, index=False)
+
+            # 4. 내 메모리 갱신 (UI 업데이트용)
+            self.load_data() 
+            return True, "저장되었습니다."
+
+        except PermissionError:
+            return False, "엑셀 파일이 현재 열려있어 저장할 수 없습니다.\n파일을 닫거나 잠시 후 다시 시도해주세요."
         except Exception as e:
-            return False, f"강제 삭제 중 오류: {e}"
+            return False, f"트랜잭션 저장 중 오류 발생: {e}"
 
+    def _create_log_entry(self, action, details):
+        """트랜잭션 내부용 로그 생성 헬퍼"""
+        try: user = getpass.getuser()
+        except: user = "Unknown"
+        return {
+            "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "작업자": user,
+            "구분": action,
+            "상세내용": details
+        }
+
+    # ---------------------------------------------------------
+    # [설정 및 파일 관리]
+    # ---------------------------------------------------------
     def load_config(self):
         if os.path.exists(Config.CONFIG_FILENAME):
             try:
@@ -144,35 +159,35 @@ class DataManager:
             print(f"설정 저장 실패: {e}")
 
     def load_data(self):
-        """엑셀 파일 로드"""
+        """엑셀 파일 로드 (읽기 전용)"""
         if os.path.exists(self.current_excel_path):
             try:
                 with pd.ExcelFile(self.current_excel_path) as xls:
-                    # 1. Data 시트
+                    # 1. Data
                     if Config.SHEET_DATA in xls.sheet_names:
                         self.df = pd.read_excel(xls, Config.SHEET_DATA)
                     else:
                         self.df = pd.read_excel(xls, 0)
 
-                    # 2. Log 시트
+                    # 2. Log
                     if Config.SHEET_LOG in xls.sheet_names:
                         self.log_df = pd.read_excel(xls, Config.SHEET_LOG)
                     else:
                         self.log_df = pd.DataFrame(columns=Config.LOG_COLUMNS)
                         
-                    # 3. Memo 시트
+                    # 3. Memo
                     if Config.SHEET_MEMO in xls.sheet_names:
                         self.memo_df = pd.read_excel(xls, Config.SHEET_MEMO)
                     else:
                         self.memo_df = pd.DataFrame(columns=Config.MEMO_COLUMNS)
 
-                    # 4. Memo Log 시트
+                    # 4. Memo Log
                     if Config.SHEET_MEMO_LOG in xls.sheet_names:
                         self.memo_log_df = pd.read_excel(xls, Config.SHEET_MEMO_LOG)
                     else:
                         self.memo_log_df = pd.DataFrame(columns=Config.MEMO_LOG_COLUMNS)
 
-                    # [신규] 5. Serial Data 시트
+                    # 5. Serial Data
                     if Config.SHEET_SERIAL in xls.sheet_names:
                         self.serial_df = pd.read_excel(xls, Config.SHEET_SERIAL)
                         if not self.serial_df.empty:
@@ -223,7 +238,11 @@ class DataManager:
             self.serial_df = self.serial_df.fillna("-")
 
     def save_to_excel(self):
-        """데이터, 로그, 메모, 시리얼데이터를 엑셀 파일에 저장"""
+        """
+        [주의] 단순 저장 메서드. 
+        동시성 문제가 발생할 수 있으므로 단순 로컬 작업이나 일괄 정리 작업 외에는
+        _execute_transaction을 사용하는 메서드를 호출하는 것을 권장함.
+        """
         existing_cols = [c for c in Config.COLUMNS if c in self.df.columns]
         output_df = self.df[existing_cols]
 
@@ -243,34 +262,325 @@ class DataManager:
         except Exception as e:
             return False, f"저장 중 오류 발생: {e}"
 
-    def _add_log(self, action, details):
-        try: user = getpass.getuser()
-        except: user = "Unknown"
-        new_entry = {"일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "작업자": user, "구분": action, "상세내용": details}
-        self.log_df = pd.concat([self.log_df, pd.DataFrame([new_entry])], ignore_index=True)
+    # ---------------------------------------------------------
+    # [개발자 모드 및 유지보수]
+    # ---------------------------------------------------------
+    def create_backup(self):
+        if not os.path.exists(self.current_excel_path):
+            return False, "원본 파일이 없습니다."
+        try:
+            base_dir = os.path.dirname(self.current_excel_path)
+            backup_dir = os.path.join(base_dir, "backup")
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+                
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = os.path.basename(self.current_excel_path)
+            name, ext = os.path.splitext(filename)
+            backup_filename = f"{name}_backup_{timestamp}{ext}"
+            backup_path = os.path.join(backup_dir, backup_filename)
+            
+            shutil.copy2(self.current_excel_path, backup_path)
+            return True, f"백업 완료:\n{backup_path}"
+        except Exception as e:
+            return False, f"백업 실패: {e}"
 
-    def _add_memo_log(self, action, req_no, content):
-        try: user = getpass.getuser()
-        except: user = "Unknown"
-        new_entry = {"일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "작업자": user, "구분": action, "요청번호": str(req_no), "내용": content}
-        self.memo_log_df = pd.concat([self.memo_log_df, pd.DataFrame([new_entry])], ignore_index=True)
+    def clean_old_logs(self, months=3):
+        """오래된 로그 정리 (트랜잭션 적용)"""
+        def logic(dfs):
+            try:
+                cutoff_date = datetime.now() - timedelta(days=months*30)
+                
+                # Log 정리
+                original_log_count = len(dfs["log"])
+                temp_log_dates = pd.to_datetime(dfs["log"]['일시'], errors='coerce')
+                dfs["log"] = dfs["log"][temp_log_dates >= cutoff_date]
+                deleted_log = original_log_count - len(dfs["log"])
+                
+                # Memo Log 정리
+                original_memo_log_count = len(dfs["memo_log"])
+                temp_memo_dates = pd.to_datetime(dfs["memo_log"]['일시'], errors='coerce')
+                dfs["memo_log"] = dfs["memo_log"][temp_memo_dates >= cutoff_date]
+                deleted_memo_log = original_memo_log_count - len(dfs["memo_log"])
+                
+                msg = f"로그 정리 완료 (기준: {cutoff_date.strftime('%Y-%m-%d')})\n- 일반 로그 삭제: {deleted_log}건\n- 메모 로그 삭제: {deleted_memo_log}건"
+                return True, msg
+            except Exception as e:
+                return False, f"로그 정리 중 오류: {e}"
 
+        return self._execute_transaction(logic)
+
+    def hard_delete_request(self, req_no):
+        """[Dev Only] 데이터 강제 완전 삭제 (트랜잭션 적용)"""
+        if not self.is_dev_mode:
+            return False, "개발자 모드가 아닙니다."
+
+        def logic(dfs):
+            # 1. Main Data 삭제
+            mask_data = dfs["df"]["번호"].astype(str) == str(req_no)
+            if not mask_data.any():
+                return False, "데이터를 찾을 수 없습니다."
+            dfs["df"] = dfs["df"][~mask_data]
+            
+            # 2. Serial Data 삭제
+            if not dfs["serial"].empty:
+                mask_serial = dfs["serial"]["요청번호"].astype(str) == str(req_no)
+                dfs["serial"] = dfs["serial"][~mask_serial]
+                
+            # 3. Memo 삭제
+            if not dfs["memo"].empty:
+                mask_memo = dfs["memo"]["번호"].astype(str) == str(req_no)
+                dfs["memo"] = dfs["memo"][~mask_memo]
+            
+            # 4. 로그 남기기
+            new_log = self._create_log_entry("강제 삭제", f"[Dev] 번호[{req_no}] 및 연관 데이터 영구 삭제")
+            dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+            
+            return True, ""
+
+        return self._execute_transaction(logic)
+
+    # ---------------------------------------------------------
+    # [비즈니스 로직 - 트랜잭션 적용]
+    # ---------------------------------------------------------
+    def update_production_schedule(self, req_no, date_str):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                dfs["df"].loc[mask, "출고예정일"] = date_str
+                dfs["df"].loc[mask, "Status"] = "생산중"
+                
+                new_log = self._create_log_entry("일정 수립", f"번호[{req_no}] 예정일({date_str}) 등록 및 생산시작")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "데이터를 찾을 수 없습니다 (삭제되었거나 변경됨)."
+
+        return self._execute_transaction(logic)
+
+    def update_status_to_hold(self, req_no):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                old_status = dfs["df"].loc[mask, "Status"].iloc[0]
+                dfs["df"].loc[mask, "Status"] = "중지"
+                dfs["df"].loc[mask, "출고예정일"] = pd.NaT 
+                
+                new_log = self._create_log_entry("중지 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 중지)")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "데이터를 찾을 수 없습니다."
+
+        return self._execute_transaction(logic)
+
+    def update_status_to_waiting(self, req_no, reason="달력에서 이동"):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                old_status = dfs["df"].loc[mask, "Status"].iloc[0]
+                dfs["df"].loc[mask, "Status"] = "대기"
+                dfs["df"].loc[mask, "대기사유"] = reason
+                dfs["df"].loc[mask, "출고예정일"] = pd.NaT
+                
+                new_log = self._create_log_entry("대기 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 대기) / 사유: {reason}")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "데이터를 찾을 수 없습니다."
+            
+        return self._execute_transaction(logic)
+
+    def update_expected_date(self, req_no, new_date):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                old_date = dfs["df"].loc[mask, "출고예정일"].iloc[0]
+                dfs["df"].loc[mask, "출고예정일"] = new_date
+                
+                new_log = self._create_log_entry("일정 변경", f"번호[{req_no}] 예정일 변경 ({old_date} -> {new_date})")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "데이터를 찾을 수 없습니다."
+        return self._execute_transaction(logic)
+
+    def finalize_production(self, req_no, out_date):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                dfs["df"].loc[mask, "출고일"] = out_date
+                dfs["df"].loc[mask, "Status"] = "완료"
+                
+                new_log = self._create_log_entry("생산 완료", f"번호[{req_no}] 출고일({out_date}) 처리 완료.")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "데이터를 찾을 수 없습니다."
+        return self._execute_transaction(logic)
+
+    def update_status_resume(self, req_no, new_date):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                dfs["df"].loc[mask, "Status"] = "생산중"
+                dfs["df"].loc[mask, "출고예정일"] = new_date
+                
+                new_log = self._create_log_entry("생산 재개", f"번호[{req_no}] 중지 -> 생산중 변경, 예정일({new_date}) 설정")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "데이터를 찾을 수 없습니다."
+        return self._execute_transaction(logic)
+
+    def delete_request(self, req_no):
+        def logic(dfs):
+            mask = dfs["df"]["번호"].astype(str) == str(req_no)
+            if mask.any():
+                dfs["df"] = dfs["df"][~mask]
+                
+                # 시리얼 삭제
+                if not dfs["serial"].empty:
+                    s_mask = dfs["serial"]["요청번호"].astype(str) == str(req_no)
+                    dfs["serial"] = dfs["serial"][~s_mask]
+                
+                # 메모 삭제
+                if not dfs["memo"].empty:
+                    m_mask = dfs["memo"]["번호"].astype(str) == str(req_no)
+                    dfs["memo"] = dfs["memo"][~m_mask]
+
+                new_log = self._create_log_entry("데이터 삭제", f"번호[{req_no}] 데이터 삭제")
+                dfs["log"] = pd.concat([dfs["log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "삭제할 데이터를 찾을 수 없습니다."
+        return self._execute_transaction(logic)
+
+    # ---------------------------------------------------------
+    # [메모 및 시리얼 관리 - 트랜잭션 적용]
+    # ---------------------------------------------------------
     def add_memo(self, req_no, content):
-        try: user = getpass.getuser()
-        except: user = "Unknown"
-        try: pc_info = platform.node()
-        except: pc_info = "Unknown"
-        new_memo = {"번호": str(req_no), "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "작업자": user, "PC정보": pc_info, "내용": content, "확인": "N"}
-        self.memo_df = pd.concat([self.memo_df, pd.DataFrame([new_memo])], ignore_index=True)
-        self._add_memo_log("추가", req_no, content)
-        return self.save_to_excel()
+        def logic(dfs):
+            try: user = getpass.getuser()
+            except: user = "Unknown"
+            try: pc_info = platform.node()
+            except: pc_info = "Unknown"
+            
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            new_memo = {
+                "번호": str(req_no), 
+                "일시": timestamp, 
+                "작업자": user, "PC정보": pc_info, 
+                "내용": content, "확인": "N"
+            }
+            dfs["memo"] = pd.concat([dfs["memo"], pd.DataFrame([new_memo])], ignore_index=True)
+            
+            new_memo_log = {
+                "일시": timestamp,
+                "작업자": user, "구분": "추가", "요청번호": str(req_no), "내용": content
+            }
+            dfs["memo_log"] = pd.concat([dfs["memo_log"], pd.DataFrame([new_memo_log])], ignore_index=True)
+            return True, ""
+        return self._execute_transaction(logic)
 
     def update_memo_check(self, req_no, timestamp, content, new_status):
-        mask = ((self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["일시"] == timestamp) & (self.memo_df["내용"] == content))
-        if mask.any():
-            self.memo_df.loc[mask, "확인"] = new_status
-            return self.save_to_excel()
-        return False, "메모를 찾을 수 없습니다."
+        def logic(dfs):
+            mask = ((dfs["memo"]["번호"].astype(str) == str(req_no)) & 
+                    (dfs["memo"]["일시"] == timestamp) & 
+                    (dfs["memo"]["내용"] == content))
+            if mask.any():
+                dfs["memo"].loc[mask, "확인"] = new_status
+                return True, ""
+            return False, "메모를 찾을 수 없습니다."
+        return self._execute_transaction(logic)
+
+    def delete_memo(self, req_no, timestamp, content):
+        def logic(dfs):
+            mask = ((dfs["memo"]["번호"].astype(str) == str(req_no)) & 
+                    (dfs["memo"]["일시"] == timestamp) & 
+                    (dfs["memo"]["내용"] == content))
+            if mask.any():
+                # 파일 삭제 시도 (로컬 파일 삭제는 트랜잭션과 별개로 수행)
+                if "[파일첨부]" in content and "(경로:" in content:
+                    try:
+                        for line in content.split('\n'):
+                            line = line.strip()
+                            if line.startswith("(경로:") and line.endswith(")"):
+                                file_path = line[5:-1].strip()
+                                if file_path and os.path.exists(file_path):
+                                    os.remove(file_path)
+                                break
+                    except: pass
+                
+                dfs["memo"] = dfs["memo"][~mask]
+                
+                # 메모 로그에 삭제 기록
+                new_log = {
+                    "일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "작업자": getpass.getuser(), "구분": "삭제", "요청번호": str(req_no), "내용": content
+                }
+                dfs["memo_log"] = pd.concat([dfs["memo_log"], pd.DataFrame([new_log])], ignore_index=True)
+                return True, ""
+            return False, "삭제할 메모를 찾을 수 없습니다."
+        return self._execute_transaction(logic)
+
+    def update_serial_list(self, req_no, model_name, new_data_list):
+        """시리얼 번호 및 렌즈 업체 정보를 업데이트합니다."""
+        def logic(dfs):
+            # 1. Serial Dataframe 업데이트
+            if not dfs["serial"].empty:
+                # 기존 데이터 삭제 (해당 요청번호, 모델명에 해당하는 것)
+                mask = (dfs["serial"]["요청번호"].astype(str) == str(req_no)) & (dfs["serial"]["모델명"] == model_name)
+                dfs["serial"] = dfs["serial"][~mask]
+            
+            if new_data_list:
+                new_rows_df = pd.DataFrame(new_data_list)
+                dfs["serial"] = pd.concat([dfs["serial"], new_rows_df], ignore_index=True)
+            
+            # 2. Main Dataframe 업데이트 (시리얼번호, 렌즈업체 요약)
+            serial_list = [
+                str(item.get("시리얼번호", "")).strip()
+                for item in new_data_list
+                if item.get("시리얼번호") and str(item.get("시리얼번호")).strip() not in ["", "-"]
+            ]
+            joined_serials = ", ".join(serial_list)
+
+            lens_list = [
+                str(item.get("렌즈업체", "")).strip()
+                for item in new_data_list
+                if item.get("렌즈업체") and str(item.get("렌즈업체")).strip() not in ["", "-"]
+            ]
+            unique_lenses = sorted(list(set(lens_list)))
+            joined_lenses = ", ".join(unique_lenses)
+            
+            mask_main = (dfs["df"]["번호"].astype(str) == str(req_no)) & (dfs["df"]["모델명"] == model_name)
+            if mask_main.any():
+                dfs["df"].loc[mask_main, "시리얼번호"] = joined_serials
+                dfs["df"].loc[mask_main, "렌즈업체"] = joined_lenses
+                
+            return True, ""
+
+        return self._execute_transaction(logic)
+
+    # ---------------------------------------------------------
+    # [Read-Only Helper Methods]
+    # 읽기 전용 메서드는 기존 메모리(self.df 등)를 사용해도 무방합니다.
+    # 단, 최신 데이터를 보장하려면 사용자가 '새로고침' 버튼을 눌러 load_data를 호출해야 합니다.
+    # ---------------------------------------------------------
+    def get_status_list(self):
+        if "Status" in self.df.columns: return sorted(self.df["Status"].astype(str).unique().tolist())
+        return []
+
+    def get_status_by_req_no(self, req_no):
+        if self.df.empty or "번호" not in self.df.columns: return None
+        mask = self.df["번호"].astype(str) == str(req_no)
+        if mask.any(): return self.df.loc[mask, "Status"].iloc[0]
+        return None
+
+    def get_serial_list(self, req_no, model_name):
+        if self.serial_df.empty: return []
+        mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
+        target_data = self.serial_df[mask].copy()
+        try:
+            target_data["_sort"] = pd.to_numeric(target_data["순번"])
+            target_data = target_data.sort_values("_sort")
+        except:
+            target_data = target_data.sort_values("순번")
+        return target_data.to_dict('records')
 
     def get_memos(self, req_no):
         if self.memo_df.empty: return []
@@ -284,54 +594,6 @@ class DataManager:
         if self.memo_df.empty: return 0
         mask = (self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["확인"] == "N")
         return len(self.memo_df[mask])
-
-    def delete_memo(self, req_no, timestamp, content):
-        mask = ((self.memo_df["번호"].astype(str) == str(req_no)) & (self.memo_df["일시"] == timestamp) & (self.memo_df["내용"] == content))
-        if mask.any():
-            if "[파일첨부]" in content and "(경로:" in content:
-                try:
-                    file_path = None
-                    # [수정] 줄 단위 파싱으로 변경
-                    for line in content.split('\n'):
-                        line = line.strip()
-                        if line.startswith("(경로:") and line.endswith(")"):
-                            file_path = line[5:-1].strip()
-                            break
-                    
-                    if file_path and os.path.exists(file_path):
-                        os.remove(file_path)
-                except: pass
-            self.memo_df = self.memo_df[~mask]
-            self._add_memo_log("삭제", req_no, content)
-            return self.save_to_excel()
-        return False, "삭제할 메모를 찾을 수 없습니다."
-
-    def save_attachment(self, source_path):
-        if not os.path.exists(source_path): return None, "원본 파일이 존재하지 않습니다."
-        try:
-            if not os.path.exists(self.attachment_dir): os.makedirs(self.attachment_dir)
-            file_name = os.path.basename(source_path)
-            name, ext = os.path.splitext(file_name)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            new_file_name = f"{name}_{timestamp}{ext}"
-            dest_path = os.path.join(self.attachment_dir, new_file_name)
-            
-            # [수정] 경로 정규화 (표준 백슬래시로 변환하여 ₩ 등의 문제 해결)
-            dest_path = os.path.normpath(dest_path)
-            
-            shutil.copy2(source_path, dest_path)
-            return dest_path, None
-        except Exception as e: return None, str(e)
-
-    def get_status_list(self):
-        if "Status" in self.df.columns: return sorted(self.df["Status"].astype(str).unique().tolist())
-        return []
-
-    def get_status_by_req_no(self, req_no):
-        if self.df.empty or "번호" not in self.df.columns: return None
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any(): return self.df.loc[mask, "Status"].iloc[0]
-        return None
 
     def get_filtered_data(self, status_filter_list=None, search_keyword="", sort_by=None, ascending=True):
         if self.df.empty: return self.df
@@ -359,118 +621,18 @@ class DataManager:
                 filtered_df = filtered_df.sort_values(by=sort_by, ascending=ascending)
         return filtered_df
 
-    def update_production_schedule(self, req_no, date_str):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            self.df.loc[mask, "출고예정일"] = date_str
-            self.df.loc[mask, "Status"] = "생산중"
-            self._add_log("일정 수립", f"번호[{req_no}] 예정일({date_str}) 등록 및 생산시작")
-            return self.save_to_excel()
-        return False, "데이터를 찾을 수 없습니다."
-
-    def get_serial_list(self, req_no, model_name):
-        if self.serial_df.empty: return []
-        mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
-        target_data = self.serial_df[mask].copy()
+    def save_attachment(self, source_path):
+        if not os.path.exists(source_path): return None, "원본 파일이 존재하지 않습니다."
         try:
-            target_data["_sort"] = pd.to_numeric(target_data["순번"])
-            target_data = target_data.sort_values("_sort")
-        except:
-            target_data = target_data.sort_values("순번")
-        return target_data.to_dict('records')
-
-    def update_serial_list(self, req_no, model_name, new_data_list):
-        if not self.serial_df.empty:
-            mask = (self.serial_df["요청번호"].astype(str) == str(req_no)) & (self.serial_df["모델명"] == model_name)
-            self.serial_df = self.serial_df[~mask]
-        if new_data_list:
-            new_rows_df = pd.DataFrame(new_data_list)
-            self.serial_df = pd.concat([self.serial_df, new_rows_df], ignore_index=True)
+            if not os.path.exists(self.attachment_dir): os.makedirs(self.attachment_dir)
+            file_name = os.path.basename(source_path)
+            name, ext = os.path.splitext(file_name)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            new_file_name = f"{name}_{timestamp}{ext}"
+            dest_path = os.path.join(self.attachment_dir, new_file_name)
             
-        serial_list = [
-            str(item.get("시리얼번호", "")).strip()
-            for item in new_data_list
-            if item.get("시리얼번호") and str(item.get("시리얼번호")).strip() != "" and str(item.get("시리얼번호")) != "-"
-        ]
-        joined_serials = ", ".join(serial_list)
-
-        lens_list = [
-            str(item.get("렌즈업체", "")).strip()
-            for item in new_data_list
-            if item.get("렌즈업체") and str(item.get("렌즈업체")).strip() != "" and str(item.get("렌즈업체")) != "-"
-        ]
-        unique_lenses = sorted(list(set(lens_list)))
-        joined_lenses = ", ".join(unique_lenses)
-        
-        mask_main = (self.df["번호"].astype(str) == str(req_no)) & (self.df["모델명"] == model_name)
-        if mask_main.any():
-            self.df.loc[mask_main, "시리얼번호"] = joined_serials
-            self.df.loc[mask_main, "렌즈업체"] = joined_lenses
+            dest_path = os.path.normpath(dest_path)
             
-        return True
-
-    def finalize_production(self, req_no, out_date):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            self.df.loc[mask, "출고일"] = out_date
-            self.df.loc[mask, "Status"] = "완료"
-            self._add_log("생산 완료", f"번호[{req_no}] 출고일({out_date}) 처리 완료.")
-            return self.save_to_excel()
-        return False, "데이터를 찾을 수 없습니다."
-
-    def update_expected_date(self, req_no, new_date):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            old_date = self.df.loc[mask, "출고예정일"].iloc[0]
-            self.df.loc[mask, "출고예정일"] = new_date
-            self._add_log("일정 변경", f"번호[{req_no}] 예정일 변경 ({old_date} -> {new_date})")
-            return self.save_to_excel()
-        return False, "데이터를 찾을 수 없습니다."
-
-    def update_status_to_hold(self, req_no):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            old_status = self.df.loc[mask, "Status"].iloc[0]
-            self.df.loc[mask, "Status"] = "중지"
-            self.df.loc[mask, "출고예정일"] = pd.NaT 
-            self._add_log("중지 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 중지)")
-            return self.save_to_excel()
-        return False, "데이터를 찾을 수 없습니다."
-
-    def update_status_resume(self, req_no, new_date):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            self.df.loc[mask, "Status"] = "생산중"
-            self.df.loc[mask, "출고예정일"] = new_date
-            self._add_log("생산 재개", f"번호[{req_no}] 중지 -> 생산중 변경, 예정일({new_date}) 설정")
-            return self.save_to_excel()
-        return False, "데이터를 찾을 수 없습니다."
-
-    def update_status_to_waiting(self, req_no, reason="달력에서 이동"):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            old_status = self.df.loc[mask, "Status"].iloc[0]
-            self.df.loc[mask, "Status"] = "대기"
-            self.df.loc[mask, "대기사유"] = reason
-            self.df.loc[mask, "출고예정일"] = pd.NaT
-            self._add_log("대기 설정", f"번호[{req_no}] 상태 변경 ({old_status} -> 대기) / 사유: {reason}")
-            return self.save_to_excel()
-        return False, "데이터를 찾을 수 없습니다."
-
-    def delete_request(self, req_no):
-        mask = self.df["번호"].astype(str) == str(req_no)
-        if mask.any():
-            details = f"번호[{req_no}] 데이터 삭제"
-            self._add_log("데이터 삭제", details)
-            self.df = self.df[~mask]
-            
-            if not self.serial_df.empty:
-                s_mask = self.serial_df["요청번호"].astype(str) == str(req_no)
-                self.serial_df = self.serial_df[~s_mask]
-            
-            if not self.memo_df.empty:
-                m_mask = self.memo_df["번호"].astype(str) == str(req_no)
-                self.memo_df = self.memo_df[~m_mask]
-
-            return self.save_to_excel()
-        return False, "삭제할 데이터를 찾을 수 없습니다."
+            shutil.copy2(source_path, dest_path)
+            return dest_path, None
+        except Exception as e: return None, str(e)
