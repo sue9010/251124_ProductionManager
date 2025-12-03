@@ -19,7 +19,7 @@ class Config:
             print(f"설정 폴더 생성 실패: {e}")
 
     CONFIG_FILENAME = os.path.join(APP_DIR, "config.json")
-    APP_VERSION = "1.3.8" # 버전 업 (Dev Mode 추가)
+    APP_VERSION = "1.3.9" # 버전 업 (Dev Mode 추가)
     
     # [보안] 개발자 모드 비밀번호 (실무에 맞게 변경하세요)
     DEV_PASSWORD = "admin" 

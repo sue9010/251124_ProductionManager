@@ -41,11 +41,13 @@ class COXProductionManager(BaseApp):
         ctk.set_appearance_mode(self.dm.current_theme)
         ctk.set_default_color_theme("dark-blue")
         
+        # 종료 이벤트 프로토콜 설정
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.pm = PopupManager(self, self.dm, self.refresh_ui)
 
         self.current_view = None
+        self.refresh_timer = None # [수정] 타이머 ID 저장을 위한 변수
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -64,19 +66,21 @@ class COXProductionManager(BaseApp):
     # [신규] 외부 데이터 변경 감지 루프
     def start_auto_refresh_loop(self):
         try:
+            # 창이 이미 닫혔다면 루프 중단
+            if not self.winfo_exists():
+                return
+
             # 외부에서 파일이 변경되었는지 확인
             if self.dm.check_for_external_changes():
                 # 변경되었다면 조용히 데이터 로드 및 UI 갱신
-                # (팝업창 없이 갱신)
                 success, _ = self.dm.load_data()
                 if success:
                     self.refresh_ui()
-                    # (선택사항) 상태표시줄이 있다면 "데이터가 동기화되었습니다" 표시 가능
         except Exception as e:
             print(f"Auto-refresh error: {e}")
             
-        # 5000ms(5초) 후에 다시 실행
-        self.after(5000, self.start_auto_refresh_loop)
+        # [핵심 수정] 5000ms(5초) 후에 다시 실행하며 타이머 ID 저장
+        self.refresh_timer = self.after(5000, self.start_auto_refresh_loop)
 
     def create_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=COLORS["bg_dark"])
@@ -193,6 +197,11 @@ class COXProductionManager(BaseApp):
                     self.view_table.close_dropdown()
 
     def on_closing(self):
+        # [핵심 수정] 종료 시 예약된 자동 새로고침 타이머 취소
+        if self.refresh_timer:
+            self.after_cancel(self.refresh_timer)
+            self.refresh_timer = None
+            
         self.quit()    
         self.destroy() 
 
