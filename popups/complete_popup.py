@@ -63,7 +63,22 @@ class CompletePopup(BasePopup):
         grid_frame.pack(fill="x")
         self._add_grid_item(grid_frame, "업체명", common_info["업체명"], 0, 0)
         self._add_grid_item(grid_frame, "출고요청일", common_info["출고요청일"], 0, 1)
-        self._add_grid_item(grid_frame, "출고예정일", common_info["출고예정일"], 1, 0)
+        
+        # [수정] 출고예정일 수정 기능 추가
+        # 기존: self._add_grid_item(grid_frame, "출고예정일", common_info["출고예정일"], 1, 0)
+        # 변경: 라벨 + 변경 버튼 추가
+        ctk.CTkLabel(grid_frame, text="출고예정일", font=FONTS["main_bold"], text_color=COLORS["primary"]).grid(row=1, column=0, padx=10, pady=5, sticky="nw")
+        
+        date_frame = ctk.CTkFrame(grid_frame, fg_color="transparent")
+        date_frame.grid(row=1, column=1, padx=10, pady=5, sticky="w")
+        
+        self.lbl_expected_date = ctk.CTkLabel(date_frame, text=str(common_info["출고예정일"]), font=FONTS["main"], text_color=COLORS["text"])
+        self.lbl_expected_date.pack(side="left", padx=(0, 5))
+        
+        ctk.CTkButton(date_frame, text="변경", width=40, height=20, font=FONTS["small"], 
+                      fg_color=COLORS["bg_light"], text_color=COLORS["text"],
+                      command=lambda: self._open_change_date_input(self.req_no, self.lbl_expected_date.cget("text"))).pack(side="left")
+
         self._add_grid_item(grid_frame, "특이사항", common_info["특이사항"], 1, 1)
 
         # --- 품목 리스트 및 상세 입력 버튼 ---
